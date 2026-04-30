@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="description" content="Traçabilité OPTILAB — BSL-GAS"/>
+<title id="ptitle">Traçabilité OPTILAB</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png"/>
+<link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/img/favicon-180.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/css/app.css">
+<style id="custom-css"></style>
+<script>(function(){var t=localStorage.getItem('optilab-theme');if(t)document.documentElement.setAttribute('data-theme',t);})()</script>
+</head>
+<body>
+
+<div id="spinner"><div class="spin"></div><p>Chargement...</p></div>
+<div class="screens">
+
+<div id="scr-login">
+  <div class="login-bg" id="login-bg"></div>
+  <div class="login-overlay"></div>
+  <div class="login-azure"></div>
+  <div class="login-cross"></div>
+  <div class="login-credit" id="login-credit"></div>
+  <button class="login-theme-btn" id="login-theme-btn" type="button" onclick="toggleTheme()" title="Changer le thème"></button>
+  <div class="login-layout">
+    <div class="login-aside" id="login-aside">
+      <div id="login-msg" class="msg-login"></div>
+    </div>
+    <div class="lcard">
+      <div class="lcard-hdr">
+      <img class="lcard-logo-full" src="/img/optilab-official-couleur.png" alt="OPTILAB BSL-Gaspésie"/>
+        <div id="l-name" class="lpage-appname">Traçabilité OPTILAB</div>
+        <div id="l-sub" class="lpage-appsub">Suivi des envois inter-grappe</div>
+      </div>
+      <div class="lcard-body">
+        <div class="lerr" id="lerr">Identifiants incorrects ou compte désactivé.</div>
+        <div class="lf"><label>N° employé</label><input type="text" id="lid" placeholder="ex. EMP001" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+        <div class="lf"><label>Mot de passe</label><input type="password" id="lpw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+        <button class="lbtn" onclick="doLogin()">Se connecter</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="scr-cpw" class="gone">
+  <div class="login-bg" id="cpw-bg"></div>
+  <div class="login-overlay"></div>
+  <div class="login-azure"></div>
+  <div class="login-cross"></div>
+  <div class="login-credit" id="cpw-credit"></div>
+  <button class="login-theme-btn" id="cpw-theme-btn" type="button" onclick="toggleTheme()" title="Changer le thème"></button>
+  <div class="login-layout">
+    <div class="lcard">
+      <div class="lcard-hdr">
+        <img class="lcard-logo-full" src="/img/optilab-official-couleur.png" alt="OPTILAB BSL-Gaspésie"/>
+        <div class="lpage-appname" id="cpw-appname">Traçabilité OPTILAB</div>
+        <div class="lpage-appsub">Première connexion — Définissez votre mot de passe</div>
+      </div>
+      <div class="lcard-body">
+        <div class="cpwi">Votre mot de passe a été réinitialisé. Définissez un nouveau mot de passe avant de continuer.</div>
+        <div class="lerr" id="cperr"></div>
+        <div class="lf"><label>Nouveau mot de passe</label><input type="password" id="npw1" onkeydown="if(event.key==='Enter')savePw()"/></div>
+        <div class="lf"><label>Confirmer</label><input type="password" id="npw2" onkeydown="if(event.key==='Enter')savePw()"/></div>
+        <button class="lbtn" onclick="savePw()">Enregistrer et accéder</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="scr-app">
+  <nav class="sidebar">
+    <div class="sb-brand">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+        <img class="sb-logo" style="margin-bottom:0" src="/img/optilab-official-blanc.png" alt="OPTILAB BSL-Gaspésie"/>
+      </div>
+      <div id="sb-sub" class="sb-brand-sub">Suivi des envois inter-grappe</div>
+      <div class="sb-mode-badge" id="sb-mode-badge">Intra-grappe</div>
+    </div>
+    <!-- Mode switcher Intra-grappe / Hors-grappe -->
+    <div class="mode-sw gone" id="mode-sw">
+      <button class="mode-sw-btn" id="mode-sw-btn" onclick="toggleModeDrop(event)">
+        <svg class="mode-sw-ico" id="mode-sw-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 15 6 6m-6-6v4.8m0-4.8h4.8"/><path d="M9 19.8V15m0 0H4.2M9 15l-6 6"/><path d="M15 4.2V9m0 0h4.8M15 9l6-6"/><path d="M9 4.2V9m0 0H4.2M9 9 3 3"/></svg>
+        <span id="mode-sw-label">Intra-grappe</span>
+        <svg class="mode-sw-arr" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <div class="mode-sw-drop gone" id="mode-sw-drop">
+        <button class="mode-sw-opt" id="mode-opt-intra" onclick="setMode('intra')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="m15 15 6 6m-6-6v4.8m0-4.8h4.8"/><path d="M9 19.8V15m0 0H4.2M9 15l-6 6"/><path d="M15 4.2V9m0 0h4.8M15 9l6-6"/><path d="M9 4.2V9m0 0H4.2M9 9 3 3"/></svg>
+          Intra-grappe
+        </button>
+        <button class="mode-sw-opt" id="mode-opt-hgrappe" onclick="setMode('hgrappe')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="m15 15 6 6"/><path d="m15 9 6-6"/><path d="M21 16v5h-5"/><path d="M21 8V3h-5"/><path d="M3 16v5h5"/><path d="m3 21 6-6"/><path d="M3 8V3h5"/><path d="M9 9 3 3"/></svg>
+          Hors-grappe
+        </button>
+      </div>
+    </div>
+    <div class="sbsc">
+      <!-- ── INTRA-GRAPPE ── -->
+      <div id="nav-intra-group">
+        <button class="nbtn" onclick="sp('reception')" id="nav-reception"><svg class="ni" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h9M8 5l3 3-3 3"/><path d="M11 3h2a1 1 0 011 1v8a1 1 0 01-1 1h-2"/></svg>Réceptionner</button>
+        <div class="nav-sep"></div>
+        <div class="stl">Saisie</div>
+        <button class="nbtn active" onclick="sp('nouveau')" id="nav-nouveau"><svg class="ni" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M8 5v6M5 8h6"/></svg>Nouvel envoi</button>
+        <div class="nav-sep"></div>
+        <div class="stl">Consultation</div>
+        <button class="nbtn" onclick="sp('resume')" id="nav-resume"><svg class="ni" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="2" rx="1"/><rect x="2" y="7" width="8" height="2" rx="1"/><rect x="2" y="11" width="10" height="2" rx="1"/></svg>Résumé labo</button>
+        <button class="nbtn" onclick="sp('historique')" id="nav-historique"><svg class="ni" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2"/></svg>Historique</button>
+      </div>
+      <!-- ── HORS-GRAPPE ── -->
+      <div id="nav-hgrappe-group" class="gone">
+        <div class="stl">Saisie</div>
+        <button class="nbtn" onclick="sp('hg-silp')" id="nav-hg-silp"><svg class="ni" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M8 5v6M5 8h6"/></svg>Nouvel envoi</button>
+        <div class="nav-sep"></div>
+        <div class="stl">Suivi</div>
+        <button class="nbtn" onclick="sp('hg-confirmations')" id="nav-hg-confirmations"><svg class="ni" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l4 4 8-8"/></svg>Confirmations</button>
+        <button class="nbtn" onclick="sp('hg-resume')" id="nav-hg-resume"><svg class="ni" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="2" rx="1"/><rect x="2" y="7" width="8" height="2" rx="1"/><rect x="2" y="11" width="10" height="2" rx="1"/></svg>Résumé labo</button>
+        <button class="nbtn" onclick="sp('hg-historique')" id="nav-hg-historique"><svg class="ni" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2"/></svg>Historique</button>
+      </div>
+      <!-- ── ADMINISTRATION (commun aux deux modes) ── -->
+      <div class="nav-sep gone" id="nav-sep-admin"></div>
+      <div class="stl gone" id="nav-stl-admin">Administration</div>
+      <button class="nbtn gone" onclick="sp('utilisateurs')" id="nav-utilisateurs"><svg class="ni" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="5" r="2.5"/><path d="M1 13c0-2.8 2.2-4 5-4s5 1.2 5 4"/><path d="M11 2.5a2.5 2.5 0 010 5M15 13c0-2-1.3-3.3-3-3.8"/></svg>Utilisateurs</button>
+      <button class="nbtn gone" onclick="sp('config')" id="nav-config"><svg class="ni" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.54 11.54l1.42 1.42M11.54 4.46l1.42-1.42M3.05 12.95l1.42-1.42"/></svg>Configuration</button>
+    </div>
+    <div class="sbbt">
+      <button class="uchip" id="uchip-btn" onclick="sp('moncompte')" title="Mon compte"><div class="uav" id="uav"></div><div class="uinf"><div class="uname" id="uname"></div><div class="ulabo" id="ulabo"></div></div><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;opacity:.4"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg></button>
+      <div class="sbbtrow">
+        <button class="theme-btn" id="theme-btn" type="button" onclick="toggleTheme()" title="Changer le thème"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+        <button class="logb" onclick="doLogout()"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 5l3 3-3 3M13 8H6"/></svg>Se déconnecter</button>
+      </div>
+      <div class="app-ver">BETA 1.3.0</div>
+    </div>
+  </nav>
+  <div class="main-wrap">
+    <div id="home-msg" class="msg-home"></div>
+    <div class="main"><div class="mi">
+
+      <div class="panel active" id="panel-nouveau">
+        <div class="ptitle">Créer un envoi</div>
+        <div class="banner bok" id="smsg"></div><div class="banner berr" id="serr"></div>
+
+        <div style="margin-bottom:1.5rem">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--b3)">Expéditeur &amp; destinataire</div>
+          <div class="fg">
+            <div class="fgg">
+              <label>Laboratoire expéditeur <span style="color:var(--te)">*</span></label>
+              <input type="text" id="lexp" readonly/>
+              <div id="lexp-addr" style="font-size:11px;color:var(--t2);margin-top:4px;line-height:1.4;min-height:14px"></div>
+            </div>
+            <div class="fgg">
+              <label>Laboratoire destinataire <span style="color:var(--te)">*</span></label>
+              <div class="sel-wrap" id="ldest-wrap">
+                <input type="text" id="ldest-input" placeholder="Rechercher un laboratoire…" autocomplete="off" oninput="filterLdest()" onfocus="openLdestDrop()" onblur="closeLdestDrop()"/>
+                <input type="hidden" id="ldest"/>
+                <div class="sel-opts" id="ldest-opts"></div>
+              </div>
+              <div id="ldest-addr" style="font-size:11px;color:var(--t2);margin-top:4px;line-height:1.4;min-height:14px"></div>
+            </div>
+            <div class="fgg">
+              <label>Transporteur <span style="color:var(--te)">*</span></label>
+              <select id="trans"><option value="">— Sélectionner —</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1.5rem">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--b3)">Spécimen &amp; transport</div>
+          <div class="fg">
+            <div class="fgg">
+              <label>Type de spécimen <span style="color:var(--te)">*</span></label>
+              <select id="tspec" onchange="SGSP=this.value">
+                <option value="exempt">Spécimen humain exempté</option>
+                <option value="cat_b">Catégorie B — UN 3373</option>
+                <option value="cat_a">Catégorie A — UN 2814</option>
+              </select>
+            </div>
+            <div class="fgg">
+              <label>Nb échantillons <span style="font-size:10px;color:var(--t3)">(optionnel)</span></label>
+              <input type="number" id="ntub" min="1" placeholder="—"/>
+            </div>
+            <div class="fgg full">
+              <label>Température d'envoi <span style="color:var(--te)">*</span></label>
+              <div class="tpills" id="tpills-c"></div>
+            </div>
+            <div class="fgg full" id="glace-section" style="display:none">
+              <label>Type de réfrigérant <span style="color:var(--te)">*</span></label>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <button type="button" class="bsm" id="btn-glace-oui" onclick="setGlace(true)" style="flex:1;justify-content:center">🧊 Glace sèche (UN 1845)</button>
+                <button type="button" class="bsm" id="btn-glace-non" onclick="setGlace(false)" style="flex:1;justify-content:center">❄️ Sachet réfrigérant</button>
+              </div>
+            </div>
+            <div class="fgg full">
+              <label>Département(s) <span style="color:var(--te)">*</span></label>
+              <div class="dpills">
+                <div class="dpill dp-bio" id="dp-BIOCHIMIE" onclick="tDept('BIOCHIMIE')">Biochimie</div>
+                <div class="dpill dp-hema" id="dp-HEMATOLOGIE" onclick="tDept('HEMATOLOGIE')">Hématologie / BDS</div>
+                <div class="dpill dp-micro" id="dp-MICROBIOLOGIE" onclick="tDept('MICROBIOLOGIE')">Microbiologie / Séro</div>
+                <div class="dpill dp-patho" id="dp-PATHOLOGIE" onclick="tDept('PATHOLOGIE')">Pathologie / Cyto</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1.5rem">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--b3)">Liste de repérage &amp; notes</div>
+          <div class="fg">
+            <div class="fgg full">
+              <div id="nlist-wrap">
+                <label>N° liste de repérage <span style="color:var(--te)">*</span></label>
+                <div style="position:relative;display:flex;align-items:center"><svg style="position:absolute;left:9px;pointer-events:none;opacity:.45;flex-shrink:0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 7v10"/><path d="M12 7v10"/><path d="M17 7v10"/></svg><input type="text" id="nlist" placeholder="Scanner liste SILP (chiffres uniquement)" inputmode="numeric" style="width:100%;padding-left:33px"/></div>
+                <div class="field-err" id="nlist-err">Ce numéro de liste de repérage correspond déjà à un envoi.</div>
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px;font-size:13px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--t1)">
+                <input type="checkbox" id="no-silp-cb" onchange="toggleNoSilp()" style="width:15px;height:15px;flex-shrink:0"/>
+                Je n'ai pas de liste de repérage SILP
+              </label>
+              <div id="no-silp-warn" style="display:none;margin-top:8px;background:#FFF3CD;border:1px solid #B97309;border-radius:6px;padding:8px 12px;font-size:12px;color:#7A4F00;line-height:1.5">
+                ⚠ Aucune liste de repérage SILP — un numéro Hors-SILP sera généré automatiquement.
+              </div>
+              <div id="no-silp-num-wrap" style="display:none;margin-top:8px">
+                <input type="text" id="h-nlist" readonly style="background:var(--b2);cursor:default;font-family:var(--fm);font-weight:600;letter-spacing:.04em" placeholder="Chargement…"/>
+                <div style="font-size:10px;color:var(--t3);margin-top:3px">Numéro attribué automatiquement — préfixe HSILP</div>
+              </div>
+            </div>
+            <div class="fgg full">
+              <label>Notes / instructions</label>
+              <textarea id="notes" placeholder="Précautions particulières, nature des échantillons..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="row"><button class="bp" onclick="saveEnvoi()">Enregistrer l'envoi</button><button class="bsec" onclick="resetForm()">Réinitialiser</button></div>
+      </div>
+
+      <div class="panel" id="panel-reception">
+        <div class="ptitle">Réceptionner un envoi</div>
+        <div class="banner bok" id="rsuc"></div><div class="banner berr" id="rerr"></div>
+        <div class="rcrd">
+          <div style="font-size:12px;color:var(--t2);margin-bottom:10px">Vous réceptionnez pour : <span class="lbadge" id="rlabo"></span></div>
+          <div class="fgg"><label>N° de liste de repérage / N° d'envoi</label><div style="display:flex;gap:8px;margin-top:3px;align-items:center"><div style="position:relative;flex:1;display:flex;align-items:center"><svg style="position:absolute;left:9px;pointer-events:none;opacity:.45;flex-shrink:0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 7v10"/><path d="M12 7v10"/><path d="M17 7v10"/></svg><input type="text" id="rnum" placeholder="Scanner ou saisir le N° de liste / N° d'envoi" style="width:100%;padding-left:33px" onkeydown="if(event.key==='Enter')rechercher()" oninput="document.getElementById('rlab-err').style.display='none'"/></div><button class="bp" onclick="rechercher()">Rechercher</button></div></div>
+          <div id="rlab-err" class="rlab-err" style="display:none">
+            <span class="rlab-err-ico">⚠</span>
+            <div><div class="rlab-err-title" id="rlab-err-title"></div><div class="rlab-err-sub" id="rlab-err-sub"></div></div>
+          </div>
+        </div>
+        <div class="rres" id="rresult">
+          <div style="font-size:14px;font-weight:500;margin-bottom:.75rem">Envoi trouvé</div>
+          <div id="rdet"></div>
+          <div style="margin-top:1rem;padding-top:1rem;border-top:0.5px solid var(--b3)">
+            <div class="fgg" style="margin-bottom:10px"><label>Réceptionné par</label><input type="text" id="rpar" readonly/></div>
+            <div class="fgg" style="margin-bottom:10px"><label>Observations <span id="obsreq" style="color:var(--te);font-size:11px;display:none">* obligatoire pour signaler un problème</span></label><textarea id="robs" placeholder="État des échantillons, anomalies constatées..."></textarea></div>
+            <div style="display:flex;gap:8px;margin-top:.75rem"><button class="bp" onclick="confirmer()">Confirmer la réception</button><button class="bsec" style="border-color:var(--bd2);color:var(--te)" onclick="signaler()">Signaler un problème</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-resume">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:8px">
+          <div class="ptitle" style="margin-bottom:0" id="rtitle">Résumé — Labo</div>
+          <select id="rls" class="gone" style="width:auto;font-size:12px;padding:5px 10px" onchange="renderResume()"></select>
+        </div>
+        <div class="drbar">
+          <div class="fgg"><label>Du</label><input type="date" id="pfrom" onchange="renderResume()"/></div>
+          <div class="fgg"><label>Au</label><input type="date" id="pto" onchange="renderResume()"/></div>
+          <div class="fgg"><label>Département</label><select id="rdept" onchange="renderResume()"><option value="">Tous</option><option value="BIOCHIMIE">Biochimie</option><option value="HEMATOLOGIE">Hématologie / BDS</option><option value="MICROBIOLOGIE">Microbiologie / Séro</option><option value="PATHOLOGIE">Pathologie / Cyto</option></select></div>
+          <div class="fgg"><label>Grouper par</label><select id="rgroup" onchange="renderResume()"><option value="envoi">Date d'envoi</option><option value="recep">Date de réception</option></select></div>
+          <div class="fgg">
+            <label style="visibility:hidden">Alertes</label>
+            <button class="alert-btn" id="resume-alert-btn" onclick="toggleResumeAlerts()" title="Afficher uniquement les alertes"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L1 13h14L8 2z"/><path d="M8 6v3M8 10.5v.5"/></svg> Alertes</button>
+          </div>
+          <div class="fgg pdf-drop-wrap">
+            <label style="visibility:hidden">Export</label>
+            <button class="pdfbtn" onclick="togglePdfDrop(event)" style="width:100%;justify-content:center">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V6l-4-4z"/><path d="M9 2v4h4M6 9h4M6 11h2"/></svg>
+              PDF
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+            <div class="pdf-drop-menu" id="pdf-drop-menu">
+              <button class="pdf-drop-opt" onclick="exportPDF('paysage')"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="1"/></svg>Paysage</button>
+              <button class="pdf-drop-opt" onclick="exportPDF('portrait')"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="1" width="10" height="14" rx="1"/></svg>Portrait</button>
+            </div>
+          </div>
+        </div>
+        <div class="cfg-tabs" style="margin-bottom:1rem">
+          <button class="cfg-tab active" id="rtab-sent" onclick="switchRTab('sent')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h9M8 5l3 3-3 3"/><path d="M13 3h1a1 1 0 011 1v8a1 1 0 01-1 1h-1"/></svg> Colis envoyés <span class="cpill" id="rsc">0</span></button>
+          <button class="cfg-tab" id="rtab-recv" onclick="switchRTab('recv')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 8H5M8 5L5 8l3 3"/><path d="M3 3H2a1 1 0 00-1 1v8a1 1 0 001 1h1"/></svg> À réceptionner <span class="cpill" id="rrc">0</span></button>
+          <button class="cfg-tab" id="rtab-done" onclick="switchRTab('done')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l4 4 8-8"/></svg> Réceptionnés <span class="cpill" id="rdc">0</span></button>
+        </div>
+        <div id="rtab-panel-sent">
+          <div id="rsent-empty" class="rtable-empty gone"></div>
+          <div class="rtables-outer gone" id="rsent-table">
+            <table class="rtable"><thead><tr><th style="width:90px">N° liste</th><th style="width:115px">Destinataire</th><th style="width:120px">Dépt</th><th style="width:80px">Temp.</th><th style="width:110px">Transporteur</th><th style="width:42px">Ech.</th><th style="width:100px">Créé par</th><th style="width:112px">Envoyé le</th><th style="width:80px">Statut</th><th style="width:112px">Réceptionné le</th><th style="width:108px">Réceptionné par</th><th style="width:68px">Transit</th></tr></thead><tbody id="rsent"></tbody></table>
+          </div>
+        </div>
+        <div id="rtab-panel-recv" class="gone">
+          <div id="rrecv-empty" class="rtable-empty gone"></div>
+          <div class="rtables-outer gone" id="rrecv-table">
+            <table class="rtable"><thead><tr><th style="width:90px">N° liste</th><th style="width:115px">Expéditeur</th><th style="width:120px">Dépt</th><th style="width:80px">Temp.</th><th style="width:110px">Transporteur</th><th style="width:42px">Ech.</th><th style="width:112px">Envoyé le</th><th style="width:80px">Statut</th><th style="width:68px">Transit</th></tr></thead><tbody id="rrecv"></tbody></table>
+          </div>
+        </div>
+        <div id="rtab-panel-done" class="gone">
+          <div id="rdone-empty" class="rtable-empty gone"></div>
+          <div class="rtables-outer gone" id="rdone-table">
+            <table class="rtable"><thead><tr><th style="width:90px">N° liste</th><th style="width:115px">Expéditeur</th><th style="width:120px">Dépt</th><th style="width:80px">Temp.</th><th style="width:110px">Transporteur</th><th style="width:42px">Ech.</th><th style="width:112px">Envoyé le</th><th style="width:112px">Réceptionné le</th><th style="width:108px">Réceptionné par</th><th style="width:68px">Transit</th></tr></thead><tbody id="rdone"></tbody></table>
+          </div>
+        </div>
+        <div id="rtable-legend" class="rtable-legend"></div>
+      </div>
+
+      <div class="panel" id="panel-historique">
+        <div class="ptitle">Historique des envois</div>
+        <div class="sgrid"><div class="scard"><div class="slbl">Total envois</div><div class="sval" id="st">0</div></div><div class="scard"><div class="slbl">Ce mois</div><div class="sval" id="sm">0</div></div><div class="scard"><div class="slbl">En transit</div><div class="sval" id="str2">0</div></div><div class="scard"><div class="slbl">Labos actifs</div><div class="sval" id="sl">0</div></div></div>
+        <div class="cfg-tabs" style="margin-bottom:1rem">
+          <button class="cfg-tab active" id="htab-sent" onclick="switchHistTab('sent')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h9M8 5l3 3-3 3"/><path d="M13 3h1a1 1 0 011 1v8a1 1 0 01-1 1h-1"/></svg> Colis envoyés <span class="cpill" id="htsc">0</span></button>
+          <button class="cfg-tab" id="htab-recv" onclick="switchHistTab('recv')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 8H5M8 5L5 8l3 3"/><path d="M3 3H2a1 1 0 00-1 1v8a1 1 0 001 1h1"/></svg> À réceptionner <span class="cpill" id="htrc">0</span></button>
+          <button class="cfg-tab" id="htab-done" onclick="switchHistTab('done')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l4 4 8-8"/></svg> Réceptionnés <span class="cpill" id="htdc">0</span></button>
+        </div>
+        <div class="drbar">
+          <div class="fgg"><label>Du</label><input type="date" id="hfrom" onchange="renderTable()"/></div>
+          <div class="fgg"><label>Au</label><input type="date" id="hto" onchange="renderTable()"/></div>
+          <div class="fgg" style="flex:2;min-width:140px"><label>Rechercher</label><input type="text" id="search" placeholder="N° liste, labo, transporteur…" oninput="renderTable()"/></div>
+          <div class="fgg"><label>Statut</label><select id="fstat" onchange="renderTable()"><option value="">Tous</option><option>En transit</option><option>Reçu</option><option>En attente</option><option>Problème</option><option>Perdu</option></select></div>
+          <div class="fgg"><label>Département</label><select id="fdept" onchange="renderTable()"><option value="">Tous</option><option value="BIOCHIMIE">Biochimie</option><option value="HEMATOLOGIE">Hématologie</option><option value="MICROBIOLOGIE">Microbiologie</option><option value="PATHOLOGIE">Pathologie</option></select></div>
+          <div class="fgg"><label>Transporteur</label><select id="ftrans" onchange="renderTable()"><option value="">Tous</option></select></div>
+          <div class="fgg">
+            <label style="visibility:hidden">Alertes</label>
+            <button class="alert-btn" id="hist-alert-btn" onclick="toggleHistAlerts()" title="Afficher uniquement les alertes"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L1 13h14L8 2z"/><path d="M8 6v3M8 10.5v.5"/></svg> Alertes</button>
+          </div>
+        </div>
+        <div id="hist-count" class="result-count"></div>
+        <div class="sticky-table"><table><thead><tr><th style="width:95px">N° liste</th><th style="width:110px">Expéditeur</th><th style="width:110px">Destinataire</th><th style="width:140px">Dépt</th><th style="width:85px">Temp.</th><th style="width:120px">Transporteur</th><th style="width:45px">Ech.</th><th style="width:80px">Statut</th><th style="width:120px">Envoyé le</th><th style="width:75px">Transit</th></tr></thead><tbody id="tbody"></tbody></table></div>
+        <div id="htable-legend" class="rtable-legend"></div>
+      </div>
+
+      <div class="panel" id="panel-moncompte">
+        <div class="ptitle">Mon compte</div>
+        <div class="banner bok" id="mc-suc"></div><div class="banner berr" id="mc-err"></div>
+        <div class="mc-grid">
+          <div class="mc-section">
+            <div class="mc-stitle">Informations</div>
+            <div class="mc-card">
+              <div class="irow"><span>Nom complet</span><span id="mc-nom">—</span></div>
+              <div class="irow"><span>N° employé</span><span id="mc-empid" style="font-family:var(--fm)">—</span></div>
+              <div class="irow"><span>Laboratoire</span><span id="mc-labo">—</span></div>
+              <div class="irow"><span>Rôle</span><span id="mc-role">—</span></div>
+              <div class="irow"><span>Statut</span><span id="mc-statut">—</span></div>
+              <div class="irow"><span>Thème</span><span id="mc-theme">—</span></div>
+              <div class="irow"><span>Créé par</span><span id="mc-created">—</span></div>
+              <div class="irow" style="border-bottom:none"><span>Dernière modification</span><span id="mc-updated">—</span></div>
+            </div>
+          </div>
+          <div class="mc-section" id="mc-pw-section">
+            <div class="mc-stitle">Changer le mot de passe</div>
+            <div class="mc-card" id="mc-pw-card">
+              <div class="fg" style="grid-template-columns:1fr">
+                <div class="fgg"><label>Nouveau mot de passe</label><input type="password" id="mc-pw1" placeholder="••••••••" autocomplete="new-password"/></div>
+                <div class="fgg"><label>Confirmer le mot de passe</label><input type="password" id="mc-pw2" placeholder="••••••••" autocomplete="new-password"/></div>
+              </div>
+              <div class="row" style="margin-top:.85rem"><button class="bp" onclick="saveMcPw()">Enregistrer</button></div>
+            </div>
+            <div class="mc-card" id="mc-pw-test" style="display:none">
+              <div style="font-size:13px;color:var(--fg-muted);line-height:1.55">Ce compte est un <strong>compte de test</strong>. Le changement de mot de passe est désactivé.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-utilisateurs">
+        <div class="ptitle">Gestion des utilisateurs</div>
+        <div class="banner bok" id="usuc"></div><div class="banner berr" id="uerr"></div>
+        <div class="uform" id="uform">
+          <div style="font-size:14px;font-weight:500;margin-bottom:1rem" id="uftitle">Ajouter</div>
+          <div class="fg">
+            <div class="fgg"><label>N° employé</label><input type="text" id="ufid" placeholder="EMP000"/></div>
+            <div class="fgg"><label>Nom complet</label><input type="text" id="ufnom"/></div>
+            <div class="fgg"><label>Laboratoire</label><select id="uflabo"><option value="">— Sélectionner —</option></select></div>
+            <div class="fgg"><label>Rôle</label><select id="ufrole"></select></div>
+            <div class="fgg"><label>Mot de passe <span style="font-size:10px;color:var(--t3)">(temporaire)</span></label><input type="password" id="ufpw"/></div>
+            <div class="fgg gone" id="ufag"><label>Statut</label><select id="ufact"><option value="true">Actif</option><option value="false">Inactif</option></select></div>
+            <div class="fgg full" id="uf-test-wrap">
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 0">
+                <input type="checkbox" id="uf-is-test" style="width:16px;height:16px;flex:none;cursor:pointer"/>
+                <label for="uf-is-test" style="text-transform:none;letter-spacing:normal;font-size:13px;cursor:pointer;font-weight:600">Compte de test <span style="font-weight:400;color:var(--t3);font-size:11px">— pas de validation de longueur MDP, changement de MDP désactivé</span></label>
+              </div>
+            </div>
+            <div class="fgg full gone" id="uf-audit-info"></div>
+          </div>
+          <div class="row"><button class="bp" onclick="saveUser()" id="ufsave">Ajouter</button><button class="bsec" onclick="cancelUF()">Annuler</button></div>
+        </div>
+        <div class="ush"><div style="font-size:14px;font-weight:500" id="ultitle">Utilisateurs</div><button class="bsm bsmi" onclick="openAddU()">+ Ajouter</button></div>
+        <div style="overflow-x:auto"><table><thead><tr><th style="width:95px">N° employé</th><th style="width:155px">Nom</th><th style="width:175px">Laboratoire</th><th style="width:110px">Rôle</th><th style="width:65px">Statut</th><th style="width:50px">MDP</th><th style="width:180px">Audit</th><th style="width:130px">Actions</th></tr></thead><tbody id="utbody"></tbody></table></div>
+      </div>
+
+      <div class="panel" id="panel-config">
+        <div class="ptitle">Configuration</div>
+        <div class="banner bok" id="cfgsuc"></div><div class="banner berr" id="cfgerr"></div>
+        <div class="cfg-tabs">
+          <button class="cfg-tab active" onclick="showCfgTab('general')" id="cfgt-general">Général</button>
+          <button class="cfg-tab" onclick="showCfgTab('messages')" id="cfgt-messages">Messages</button>
+          <button class="cfg-tab" onclick="showCfgTab('labs')" id="cfgt-labs">Laboratoires</button>
+          <button class="cfg-tab" onclick="showCfgTab('temps')" id="cfgt-temps">Températures</button>
+          <button class="cfg-tab" onclick="showCfgTab('trans')" id="cfgt-trans">Transporteurs</button>
+          <button class="cfg-tab" onclick="showCfgTab('alarm')" id="cfgt-alarm">Alarmes</button>
+          <button class="cfg-tab" onclick="showCfgTab('badges')" id="cfgt-badges">Badges</button>
+          <button class="cfg-tab" onclick="showCfgTab('theme')" id="cfgt-theme">Thème</button>
+          <button class="cfg-tab" onclick="showCfgTab('bordereau')" id="cfgt-bordereau">Bordereau</button>
+          <button class="cfg-tab" onclick="showCfgTab('hgrappe')" id="cfgt-hgrappe">Hors-grappe</button>
+        </div>
+        <div class="cfg-pane active" id="cfgp-general">
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Identité de l'application</div>
+            <div class="fgg" style="margin-bottom:10px"><label>Nom</label><input type="text" id="cfg-name"/></div>
+            <div class="fgg" style="margin-bottom:14px"><label>Sous-titre</label><input type="text" id="cfg-sub"/></div>
+            <button class="bp" onclick="saveBranding()">Enregistrer</button>
+          </div>
+        </div>
+        <div class="cfg-pane" id="cfgp-messages"><div class="cfg-sec" style="max-width:none">
+          <div class="fgg" style="margin-bottom:18px">
+            <label>Message — Page de connexion</label>
+            <div style="font-size:11px;color:var(--t3);margin:3px 0 6px">Affiché en encadré bleu sur la page de connexion.</div>
+            <div class="mde-wrap">
+              <div class="mde-toolbar">
+                <button class="mde-btn" onclick="mdeWrap('login','**','**')" title="Gras"><b>B</b></button>
+                <button class="mde-btn" onclick="mdeWrap('login','*','*')" title="Italique"><i>I</i></button>
+                <button class="mde-btn" onclick="mdeWrap('login','`','`')" title="Code inline">{ }</button>
+                <button class="mde-btn" onclick="mdeLink('login')" title="Lien">🔗</button>
+                <div class="mde-sep"></div>
+                <button class="mde-btn" onclick="mdeLinePrefix('login','# ')" title="Titre 1">H1</button>
+                <button class="mde-btn" onclick="mdeLinePrefix('login','## ')" title="Titre 2">H2</button>
+                <button class="mde-btn" onclick="mdeLinePrefix('login','### ')" title="Titre 3">H3</button>
+                <div class="mde-sep"></div>
+                <button class="mde-btn" onclick="mdeLinePrefix('login','- ')" title="Liste à puces">• liste</button>
+                <button class="mde-btn" onclick="mdeBlock('login','---')" title="Séparateur">—</button>
+              </div>
+              <div class="mde-body">
+                <textarea id="cfg-msg-login" placeholder="Laissez vide pour désactiver…" oninput="mdeUpdate('login')"></textarea>
+                <div class="mde-preview" id="mde-login-prev"><span class="mde-empty">Aperçu…</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="fgg" style="margin-bottom:18px">
+            <label>Message — Page d'accueil</label>
+            <div style="font-size:11px;color:var(--t3);margin:3px 0 6px">Bandeau bleu persistant après connexion.</div>
+            <div class="mde-wrap">
+              <div class="mde-toolbar">
+                <button class="mde-btn" onclick="mdeWrap('home','**','**')" title="Gras"><b>B</b></button>
+                <button class="mde-btn" onclick="mdeWrap('home','*','*')" title="Italique"><i>I</i></button>
+                <button class="mde-btn" onclick="mdeWrap('home','`','`')" title="Code inline">{ }</button>
+                <button class="mde-btn" onclick="mdeLink('home')" title="Lien">🔗</button>
+                <div class="mde-sep"></div>
+                <button class="mde-btn" onclick="mdeLinePrefix('home','# ')" title="Titre 1">H1</button>
+                <button class="mde-btn" onclick="mdeLinePrefix('home','## ')" title="Titre 2">H2</button>
+                <button class="mde-btn" onclick="mdeLinePrefix('home','### ')" title="Titre 3">H3</button>
+                <div class="mde-sep"></div>
+                <button class="mde-btn" onclick="mdeLinePrefix('home','- ')" title="Liste à puces">• liste</button>
+                <button class="mde-btn" onclick="mdeBlock('home','---')" title="Séparateur">—</button>
+              </div>
+              <div class="mde-body">
+                <textarea id="cfg-msg-home" placeholder="Laissez vide pour désactiver…" oninput="mdeUpdate('home')"></textarea>
+                <div class="mde-preview" id="mde-home-prev"><span class="mde-empty">Aperçu…</span></div>
+              </div>
+            </div>
+          </div>
+          <button class="bp" onclick="saveMessages()">Enregistrer les messages</button>
+        </div></div>
+        <div class="cfg-pane" id="cfgp-labs">
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Laboratoires <span id="labs-count" style="color:var(--t3);font-size:11px;font-weight:400"></span></div>
+            <div class="cfg-list" id="labs-list"></div>
+            <div class="cfg-add"><input type="text" id="newlab" placeholder="Nom du nouveau laboratoire"/><button class="bp" onclick="addLab()">Ajouter</button></div>
+          </div>
+        </div>
+        <div class="cfg-pane" id="cfgp-temps">
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Températures d'envoi</div>
+            <div class="cfg-list" id="temps-list"></div>
+            <div class="cfg-add" style="flex-wrap:wrap;gap:6px">
+              <input type="text" id="newtmp-ic" placeholder="Emoji" style="max-width:60px;flex:none"/>
+              <input type="text" id="newtmp-lbl" placeholder="Libellé" style="flex:1;min-width:120px"/>
+              <input type="text" id="newtmp-mention" placeholder="Mention bordereau" style="flex:1;min-width:150px"/>
+              <label style="display:flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap;flex:none"><input type="checkbox" id="newtmp-glace"/> Demande réfrigérant</label>
+              <button class="bp" style="flex:none" onclick="addTemp()">Ajouter</button>
+            </div>
+          </div>
+        </div>
+        <div class="cfg-pane" id="cfgp-trans">
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Transporteurs</div>
+            <div class="cfg-list" id="trans-list"></div>
+            <div class="cfg-add"><input type="text" id="newtrans" placeholder="Nom du transporteur"/><button class="bp" onclick="addTrans()">Ajouter</button></div>
+          </div>
+        </div>
+        <div class="cfg-pane" id="cfgp-alarm">
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Seuils d'alarme</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:16px">
+              <div class="fgg">
+                <label style="text-transform:none;letter-spacing:normal">Alarme R — Transit trop long</label>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <input type="number" id="cfg-alarm-r" min="1" max="720" style="max-width:100px"/>
+                  <span style="font-size:12px;color:var(--t2)">heures</span>
+                </div>
+                <div class="cfg-hint">Ligne surlignée en rouge dans les tableaux.</div>
+              </div>
+              <div class="fgg">
+                <label style="text-transform:none;letter-spacing:normal">Alarme P — Potentiellement perdu</label>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <input type="number" id="cfg-alarm-p" min="1" max="365" style="max-width:100px"/>
+                  <span style="font-size:12px;color:var(--t2)">jours</span>
+                </div>
+                <div class="cfg-hint">Ligne surlignée en bordeaux dans les tableaux.</div>
+              </div>
+            </div>
+            <button class="bp" onclick="saveAlarms()">Enregistrer</button>
+          </div>
+        </div>
+        <div class="cfg-pane" id="cfgp-bordereau">
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Activation</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:14px"><input type="checkbox" id="cfg-print-bordereau"/> Afficher le bouton « Imprimer le bordereau » après la création d'un envoi SILP</label>
+            <button class="bp" onclick="saveInterfaceCfg()">Enregistrer</button>
+          </div>
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Format d'impression</div>
+            <div class="cfg-hint" style="margin-bottom:10px">Choisissez la mise en page utilisée lors de l'impression du bordereau.</div>
+            <div id="fmt-list"></div>
+          </div>
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Paramètres généraux</div>
+            <div class="fgg" style="margin-bottom:10px"><label>Titre du bordereau</label><input type="text" id="brd-titre" placeholder="OPTILAB — Bordereau d'envoi"/></div>
+            <div class="fgg" style="margin-bottom:10px"><label>Texte de la ligne de pli</label><input type="text" id="brd-pli" placeholder="✄ Plier ici — Fold here"/></div>
+            <div class="fgg" style="margin-bottom:4px"><label>Numéro CANUTEC (urgences 24h)</label><input type="text" id="brd-canutec" placeholder="1-613-996-6666"/></div>
+            <div class="cfg-hint" style="margin-bottom:14px">Requis pour les envois de Catégorie A et B (marchandises dangereuses).</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:16px"><input type="checkbox" id="brd-warn-size"/> Afficher l'avertissement de taille réglementaire (100×100mm) sur le bordereau</label>
+            <button class="bp" onclick="saveBrdGeneral()">Enregistrer</button>
+          </div>
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Envoi Hors SILP — Format du bordereau</div>
+            <div class="cfg-hint" style="margin-bottom:10px">Mise en page utilisée lors de l'impression forcée du bordereau Hors SILP. Ce format est appliqué indépendamment du format général ci-dessus.</div>
+            <div id="hsilp-fmt-list"></div>
+          </div>
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Types de spécimen</div>
+            <div class="cfg-hint" style="margin-bottom:10px">Configure les options du sélecteur, le texte et le pictogramme de chaque type.</div>
+            <div class="cfg-list" id="spec-list"></div>
+            <div style="margin-top:12px;padding:12px;background:var(--b2);border-radius:8px;border:1px solid var(--bd)">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:10px">Nouveau type</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+                <div>
+                  <div style="font-size:10px;color:var(--t2);margin-bottom:3px">Libellé (liste de sélection)</div>
+                  <input type="text" id="newspec-label" placeholder="Ex. Catégorie C" style="width:100%"/>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--t2);margin-bottom:3px">Forme du pictogramme</div>
+                  <select id="newspec-shape" style="width:100%"><option value="box">Boîte (texte)</option><option value="diamond">Losange (UN)</option></select>
+                </div>
+                <div>
+                  <div style="font-size:10px;color:var(--t2);margin-bottom:3px">Numéro UN (optionnel)</div>
+                  <input type="text" id="newspec-un" placeholder="Ex. UN 3373" style="width:100%"/>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;padding-top:14px">
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <input type="checkbox" id="newspec-dgr" style="flex:none;width:14px;height:14px;cursor:pointer"/>
+                    <label for="newspec-dgr" style="font-size:12px;cursor:pointer;text-transform:none;letter-spacing:normal;line-height:1.4">Marchandises dangereuses (CANUTEC)</label>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:7px">
+                    <input type="checkbox" id="newspec-bio" style="flex:none;width:14px;height:14px;cursor:pointer"/>
+                    <label for="newspec-bio" style="font-size:12px;cursor:pointer;text-transform:none;letter-spacing:normal;line-height:1.4">Pictogramme biohazard &#x2623;</label>
+                  </div>
+                </div>
+              </div>
+              <button class="bp" onclick="addSpecType()">Ajouter le type</button>
+            </div>
+          </div>
+        </div>
+        <div class="cfg-pane" id="cfgp-theme">
+          <div class="cfg-sec" style="max-width:560px">
+            <div class="cfg-stitle">CSS personnalisé</div>
+          <div class="fgg" style="margin-bottom:11px">
+            <label>Feuille de style additionnelle</label>
+            <div class="cfg-hint" style="margin-bottom:6px">Appliqué après les styles par défaut. Peut redéfinir n'importe quelle règle.</div>
+            <textarea id="cfg-custom-css" rows="9" placeholder="/* Exemple */&#10;.sidebar { background: #1a1a2e; }&#10;.ar td { background: rgba(255,0,0,.2) !important; }&#10;:root { --font-sans: 'Arial', sans-serif; }" style="font-family:var(--fm);font-size:12px;line-height:1.6"></textarea>
+            <details class="css-ref">
+              <summary><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 7v4M8 5v.5"/></svg>Référence — classes importantes</summary>
+              <div class="css-ref-table">
+                <div class="css-ref-row"><code class="css-ref-code">.ar td</code><span class="css-ref-desc">Fond alarme R (transit &gt; seuil heures)</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">.ar:hover td</code><span class="css-ref-desc">Survol ligne alarme R</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">.ar-lost td</code><span class="css-ref-desc">Fond alarme P (potentiellement perdu)</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">.ar-lost:hover td</code><span class="css-ref-desc">Survol ligne alarme P</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">.row-probleme td</code><span class="css-ref-desc">Fond ligne Problème signalé</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">.row-perdu td</code><span class="css-ref-desc">Style colis perdu (italique grisé)</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">.dsep td</code><span class="css-ref-desc">Séparateurs de date dans les tableaux</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">.sidebar</code><span class="css-ref-desc">Fond de la barre latérale</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">.lcard</code><span class="css-ref-desc">Carte de connexion</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">.ptitle</code><span class="css-ref-desc">Titre des panneaux</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">.bp</code><span class="css-ref-desc">Bouton principal</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">:root { --brand-azure-deep }</code><span class="css-ref-desc">Couleur principale (boutons, accents)</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">:root { --brand-azure-ink }</code><span class="css-ref-desc">Couleur principale (texte coloré)</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">:root { --font-sans }</code><span class="css-ref-desc">Police de base (ex: 'Roboto', sans-serif)</span></div>
+                <div class="css-ref-row"><code class="css-ref-code">:root { --font-display }</code><span class="css-ref-desc">Police des titres et chiffres clés</span></div>
+              </div>
+            </details>
+          </div>
+          <button class="bp" onclick="saveCustomCss()">Enregistrer le CSS</button>
+          </div>
+        </div>
+        <div class="cfg-pane" id="cfgp-hgrappe">
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Activation par laboratoire</div>
+            <div class="cfg-hint" style="margin-bottom:12px">Choisissez les laboratoires qui ont accès au mode Hors-grappe. Seuls ces laboratoires verront le sélecteur de mode dans la barre latérale.</div>
+            <div class="cfg-list" id="hgrappe-labs-list"></div>
+            <button class="bp" style="margin-top:10px" onclick="saveHgrappeLabs()">Enregistrer</button>
+          </div>
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Laboratoires destinataires Hors-grappe</div>
+            <div class="cfg-hint" style="margin-bottom:10px">Gérez la liste des laboratoires externes. Un laboratoire peut avoir des sous-laboratoires (ex : HEJ → HEJ - Immunosupprimé).</div>
+            <div class="cfg-list" id="extlabs-list"></div>
+            <div id="extlabs-add-row" style="background:var(--b2);border-radius:8px;padding:12px;margin-top:6px">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:10px">Nouveau laboratoire</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                <div class="fgg" style="grid-column:1/-1"><label style="font-size:10px">Nom <span style="color:var(--te)">*</span></label><input type="text" id="extlab-new-name" placeholder="Ex. HEJ - Immunosupprimés"/></div>
+                <div class="fgg" style="grid-column:1/-1"><label style="font-size:10px">Laboratoire parent <span style="font-style:italic;font-weight:400">(optionnel)</span></label><select id="extlab-parent-sel" style="width:100%"><option value="">— Aucun parent —</option></select></div>
+                <div class="fgg" style="grid-column:1/-1"><label style="font-size:10px">Adresse (ligne 1)</label><input type="text" id="extlab-new-adresse" placeholder="150, rue X"/></div>
+                <div class="fgg" style="grid-column:1/-1"><label style="font-size:10px">Adresse (ligne 2)</label><input type="text" id="extlab-new-adresse2" placeholder="Bureau 200, Édifice Y"/></div>
+                <div class="fgg"><label style="font-size:10px">Ville</label><input type="text" id="extlab-new-ville" placeholder="Montréal"/></div>
+                <div class="fgg"><label style="font-size:10px">Province / État</label><input type="text" id="extlab-new-province" placeholder="QC"/></div>
+                <div class="fgg"><label style="font-size:10px">Code postal</label><input type="text" id="extlab-new-cp" placeholder="G0L 1G0"/></div>
+                <div class="fgg"><label style="font-size:10px">Pays</label><input type="text" id="extlab-new-pays" placeholder="Canada"/></div>
+                <div class="fgg"><label style="font-size:10px">Téléphone</label><input type="text" id="extlab-new-tel" placeholder="514 xxx-xxxx"/></div>
+                <div class="fgg" style="grid-column:1/-1"><label style="font-size:10px">Texte étiquette HG <span style="font-weight:400;color:var(--t3)">(optionnel)</span></label><textarea id="extlab-new-label" rows="2" placeholder="Ex. MULTI SECTEUR SPÉCIALITÉS&#10;A/S Immunosuppresseurs" style="resize:vertical"></textarea></div>
+              </div>
+              <button class="bp" onclick="addExtLab()">Ajouter le laboratoire</button>
+            </div>
+          </div>
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Alarmes — Confirmation manquante</div>
+            <div class="cfg-hint" style="margin-bottom:16px">Déclenche des alertes visuelles et un changement automatique de statut pour les envois Hors-grappe sans confirmation.</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:16px">
+              <div class="fgg">
+                <label style="text-transform:none;letter-spacing:normal">Alarme visuelle — délai</label>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <input type="number" id="cfg-hg-alarm-days" min="1" max="30" style="max-width:90px"/>
+                  <span style="font-size:12px;color:var(--t2)">jours</span>
+                </div>
+                <div class="cfg-hint">Ligne surlignée en orange dans les tableaux si aucune confirmation reçue après ce délai.</div>
+              </div>
+              <div class="fgg">
+                <label style="text-transform:none;letter-spacing:normal">Statut « Aucune réponse » après</label>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <input type="number" id="cfg-hg-auto-days" min="1" max="365" style="max-width:90px"/>
+                  <span style="font-size:12px;color:var(--t2)">jours</span>
+                </div>
+                <div class="cfg-hint">Statut passé automatiquement à « Aucune réponse reçue » si aucune confirmation après ce délai.</div>
+              </div>
+            </div>
+            <button class="bp" onclick="saveHGAlarms()">Enregistrer</button>
+          </div>
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Confirmation par numéro d'envoi</div>
+            <div class="cfg-hint" style="margin-bottom:12px">Permet au destinataire d'accéder à la page de confirmation en saisissant le numéro d'envoi (ex. HG-260430-00001) au lieu de scanner le code. Utile si les codes ne peuvent pas être scannés.</div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <label class="cfg-toggle"><input type="checkbox" id="cfg-hg-confirm-by-numero" onchange="saveHgrappeConfirmByNumero()"/><span class="cfg-toggle-sl"></span></label>
+              <span style="font-size:13px">Autoriser la recherche par numéro d'envoi sur la page de confirmation</span>
+            </div>
+          </div>
+          <div class="cfg-sec">
+            <div class="cfg-stitle">Format du bordereau Hors-grappe</div>
+            <div class="cfg-hint" style="margin-bottom:10px">Format appliqué lors de l'impression obligatoire après enregistrement d'un envoi Hors-grappe.</div>
+            <div id="hgrappe-fmt-list"></div>
+          </div>
+        </div>
+        <div class="cfg-pane" id="cfgp-badges">
+          <div class="cfg-sec" style="max-width:520px">
+            <div class="cfg-stitle">Couleurs des badges de statut</div>
+            <div id="cfg-badges-list"></div>
+            <button class="bp" style="margin-top:6px" onclick="saveBadges()">Enregistrer</button>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ══════════════════════════════════════════════════════ -->
+      <!-- PANELS HORS-GRAPPE                                      -->
+      <!-- ══════════════════════════════════════════════════════ -->
+
+      <!-- Nouvel envoi HG — SILP -->
+      <div class="panel" id="panel-hg-silp">
+        <div class="ptitle">Créer un envoi Hors-grappe</div>
+        <div class="banner bok" id="hgs-smsg"></div><div class="banner berr" id="hgs-serr"></div>
+
+        <div style="margin-bottom:1.5rem">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--b3)">Expéditeur &amp; destinataire</div>
+          <div class="fg">
+            <div class="fgg">
+              <label>Laboratoire expéditeur <span style="color:var(--te)">*</span></label>
+              <input type="text" id="hgs-lexp" readonly/>
+              <div id="hgs-lexp-addr" style="font-size:11px;color:var(--t2);margin-top:4px;line-height:1.4;min-height:14px"></div>
+            </div>
+            <div class="fgg">
+              <label>Laboratoire destinataire <span style="color:var(--te)">*</span></label>
+              <select id="hgs-parent" onchange="onHgSilpParentChange()"></select>
+              <div id="hgs-child-wrap" style="display:none;margin-top:6px">
+                <label style="font-size:11px;color:var(--t2);font-weight:600;text-transform:none;letter-spacing:0">Sous-laboratoire</label>
+                <select id="hgs-child" onchange="onHgSilpChildChange()" style="margin-top:4px"></select>
+              </div>
+              <div id="hgs-dest-addr" style="min-height:14px;margin-top:4px"></div>
+              <input type="hidden" id="hgs-ldest"/>
+            </div>
+            <div class="fgg">
+              <label>Transporteur <span style="color:var(--te)">*</span></label>
+              <select id="hgs-trans"><option value="">— Sélectionner —</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1.5rem">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--b3)">Spécimen &amp; transport</div>
+          <div class="fg">
+            <div class="fgg">
+              <label>Type de spécimen <span style="color:var(--te)">*</span></label>
+              <select id="hgs-tspec"></select>
+            </div>
+            <div class="fgg">
+              <label>Nb échantillons <span style="font-size:10px;color:var(--t3)">(optionnel)</span></label>
+              <input type="number" id="hgs-ntub" min="1" placeholder="—"/>
+            </div>
+            <div class="fgg full">
+              <label>Température d'envoi <span style="color:var(--te)">*</span></label>
+              <div class="tpills" id="hgs-tpills-c"></div>
+            </div>
+            <div class="fgg full" id="hgs-glace-section" style="display:none">
+              <label>Type de réfrigérant <span style="color:var(--te)">*</span></label>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <button type="button" class="bsm" id="hgs-btn-glace-oui" onclick="setHgsSGC(true)" style="flex:1;justify-content:center">🧊 Glace sèche (UN 1845)</button>
+                <button type="button" class="bsm" id="hgs-btn-glace-non" onclick="setHgsSGC(false)" style="flex:1;justify-content:center">❄️ Sachet réfrigérant</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1.5rem">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--b3)">Listes de repérage &amp; notes</div>
+          <div class="fg">
+            <div class="fgg full">
+              <div id="hgs-nlist-wrap">
+                <label>N° listes de repérage <span style="color:var(--te)">*</span></label>
+                <div style="display:flex;gap:8px;margin-bottom:6px">
+                  <div style="position:relative;flex:1;display:flex;align-items:center"><svg style="position:absolute;left:9px;pointer-events:none;opacity:.45;flex-shrink:0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 7v10"/><path d="M12 7v10"/><path d="M17 7v10"/></svg><input type="text" id="hgs-nlist-input" placeholder="Scanner liste SILP (chiffres uniquement)" inputmode="numeric" onkeydown="if(event.key==='Enter'){event.preventDefault();addHgsList();}" style="width:100%;padding-left:33px"/></div>
+                  <button type="button" class="bsm" onclick="addHgsList()" style="flex-shrink:0">+ Ajouter</button>
+                </div>
+                <div id="hgs-nlist-chips" class="nlist-chips"></div>
+                <div class="field-err" id="hgs-nlist-err"></div>
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px;font-size:13px;font-weight:normal;text-transform:none;letter-spacing:0;color:var(--t1)">
+                <input type="checkbox" id="hgs-no-silp-cb" onchange="toggleHgsNoSilp()" style="width:15px;height:15px;flex-shrink:0"/>
+                Je n'ai pas de liste de repérage SILP
+              </label>
+              <div id="hgs-no-silp-warn" style="display:none;margin-top:8px;background:#FFF3CD;border:1px solid #B97309;border-radius:6px;padding:8px 12px;font-size:12px;color:#7A4F00;line-height:1.5">
+                ⚠ Aucune liste de repérage SILP — un numéro Hors-SILP sera généré automatiquement.
+              </div>
+              <div id="hgs-no-silp-num-wrap" style="display:none;margin-top:8px">
+                <input type="text" id="hgh-nlist" readonly style="background:var(--b2);cursor:default;font-family:var(--fm);font-weight:600;letter-spacing:.04em" placeholder="Chargement…"/>
+                <div style="font-size:10px;color:var(--t3);margin-top:3px">Numéro attribué automatiquement — préfixe HG</div>
+              </div>
+            </div>
+            <div class="fgg full">
+              <label>Notes / instructions</label>
+              <textarea id="hgs-notes" placeholder="Précautions particulières, nature des échantillons..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="row"><button class="bp" onclick="saveEnvoiHgSilp()">Enregistrer l'envoi</button><button class="bsec" onclick="resetHgSilpForm()">Réinitialiser</button></div>
+      </div>
+
+      <!-- Nouvel envoi HG — Hors SILP -->
+      <!-- Confirmations HG -->
+      <div class="panel" id="panel-hg-confirmations">
+        <div class="ptitle">Confirmations de réception — Hors-grappe</div>
+        <div class="drbar">
+          <div class="fgg"><label>Du</label><input type="date" id="hgc-from" onchange="renderHGConfirmations()"/></div>
+          <div class="fgg"><label>Au</label><input type="date" id="hgc-to" onchange="renderHGConfirmations()"/></div>
+          <div class="fgg"><label>Statut confirmation</label>
+            <select id="hgc-fstat" onchange="renderHGConfirmations()">
+              <option value="">Tous</option>
+              <option value="pending">En attente</option>
+              <option value="online">Confirmé en ligne</option>
+              <option value="fax">Confirmé par fax</option>
+              <option value="noans">Aucune réponse reçue</option>
+            </select>
+          </div>
+        </div>
+        <div id="hgc-count" class="result-count"></div>
+        <div class="sticky-table"><table><thead><tr>
+
+          <th style="width:130px">N° envoi</th>
+          <th style="width:115px">Destinataire</th>
+          <th style="width:80px">Temp.</th>
+          <th style="width:110px">Transporteur</th>
+          <th style="width:112px">Envoyé le</th>
+          <th style="width:95px">Statut envoi</th>
+          <th style="width:95px">Confirmation</th>
+          <th style="width:112px">Confirmé le</th>
+          <th style="width:110px">Actions</th>
+        </tr></thead><tbody id="hgc-tbody"></tbody></table></div>
+        <div id="hgc-legend" class="rtable-legend"></div>
+      </div>
+
+      <!-- Résumé labo HG -->
+      <div class="panel" id="panel-hg-resume">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:8px">
+          <div class="ptitle" style="margin-bottom:0">Résumé — Labo — Hors-grappe</div>
+          <select id="hgr-ls" class="gone" style="width:auto;font-size:12px;padding:5px 10px" onchange="renderHGResume()"></select>
+        </div>
+        <div class="drbar">
+          <div class="fgg"><label>Du</label><input type="date" id="hgr-from" onchange="renderHGResume()"/></div>
+          <div class="fgg"><label>Au</label><input type="date" id="hgr-to" onchange="renderHGResume()"/></div>
+          <div class="fgg"><label>Grouper par</label><select id="hgr-group" onchange="renderHGResume()"><option value="envoi">Date d'envoi</option><option value="confirm">Date confirmation</option></select></div>
+        </div>
+        <div class="cfg-tabs" style="margin-bottom:1rem">
+          <button class="cfg-tab active" id="hgrtab-sent" onclick="switchHGRTab('sent')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h9M8 5l3 3-3 3"/><path d="M13 3h1a1 1 0 011 1v8a1 1 0 01-1 1h-1"/></svg> Envoyés <span class="cpill" id="hgr-sc">0</span></button>
+          <button class="cfg-tab" id="hgrtab-recv" onclick="switchHGRTab('recv')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l4 4 8-8"/></svg> Confirmés <span class="cpill" id="hgr-dc">0</span></button>
+          <button class="cfg-tab" id="hgrtab-wait" onclick="switchHGRTab('wait')"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2"/></svg> En attente <span class="cpill" id="hgr-wc">0</span></button>
+        </div>
+        <div id="hgr-table-wrap">
+          <div id="hgr-empty" class="rtable-empty gone"></div>
+          <div class="rtables-outer gone" id="hgr-table">
+            <table class="rtable"><thead><tr>
+              <th style="width:130px">N° envoi</th>
+              <th style="width:80px">Source</th>
+              <th style="width:150px">Destinataire</th>
+              <th style="width:80px">Temp.</th>
+              <th style="width:110px">Transporteur</th>
+              <th style="width:45px">Ech.</th>
+              <th style="width:100px">Créé par</th>
+              <th style="width:112px">Envoyé le</th>
+              <th style="width:95px">Confirmation</th>
+              <th style="width:112px">Confirmé le</th>
+            </tr></thead><tbody id="hgr-tbody"></tbody></table>
+          </div>
+        </div>
+        <div id="hgr-legend" class="rtable-legend"></div>
+      </div>
+
+      <!-- Historique HG -->
+      <div class="panel" id="panel-hg-historique">
+        <div class="ptitle">Historique — Hors-grappe</div>
+        <div class="sgrid">
+          <div class="scard"><div class="slbl">Total envois HG</div><div class="sval" id="hgh-st">0</div></div>
+          <div class="scard"><div class="slbl">Ce mois</div><div class="sval" id="hgh-sm">0</div></div>
+          <div class="scard"><div class="slbl">En transit</div><div class="sval" id="hgh-str">0</div></div>
+          <div class="scard"><div class="slbl">Confirmés</div><div class="sval" id="hgh-sconf">0</div></div>
+        </div>
+        <div class="drbar">
+          <div class="fgg"><label>Du</label><input type="date" id="hgh-from" onchange="renderHGHistorique()"/></div>
+          <div class="fgg"><label>Au</label><input type="date" id="hgh-to" onchange="renderHGHistorique()"/></div>
+          <div class="fgg" style="flex:2;min-width:140px"><label>Rechercher</label><input type="text" id="hgh-search" placeholder="N° envoi, labo, transporteur…" oninput="renderHGHistorique()"/></div>
+          <div class="fgg"><label>Statut</label><select id="hgh-fstat" onchange="renderHGHistorique()"><option value="">Tous</option><option>En transit</option><option>Reçu</option><option>Problème</option></select></div>
+          <div class="fgg"><label>Source</label><select id="hgh-fsrc" onchange="renderHGHistorique()"><option value="">Tous</option><option value="silp">SILP</option><option value="hsilp">Hors SILP</option></select></div>
+        </div>
+        <div id="hgh-count" class="result-count"></div>
+        <div class="sticky-table"><table><thead><tr>
+          <th style="width:130px">N° envoi</th>
+          <th style="width:70px">Source</th>
+          <th style="width:150px">Destinataire</th>
+          <th style="width:85px">Temp.</th>
+          <th style="width:120px">Transporteur</th>
+          <th style="width:45px">Ech.</th>
+          <th style="width:90px">Statut envoi</th>
+          <th style="width:95px">Confirmation</th>
+          <th style="width:120px">Envoyé le</th>
+        </tr></thead><tbody id="hgh-tbody"></tbody></table></div>
+        <div id="hgh-legend" class="rtable-legend"></div>
+      </div>
+
+    </div></div>
+  </div>
+</div>
+</div>
+
+<div id="hsilp-warn-modal" onclick="if(event.target===this)cancelNoList()" style="display:none;position:fixed;inset:0;background:rgba(15,42,61,.5);z-index:350;align-items:center;justify-content:center">
+  <div class="confirm-box" style="max-width:560px">
+    <div class="confirm-title" style="display:flex;align-items:center;gap:9px;color:var(--warning)">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L1 13h14L8 2z"/><path d="M8 6v3M8 10.5v.5"/></svg>
+      Envoi sans liste de repérage SILP
+    </div>
+    <div class="confirm-msg" style="text-align:left;line-height:1.7">
+      Cet envoi ne contient <strong>AUCUN</strong> échantillon enregistré dans le SILP et donc aucune liste de repérage.<br><br>
+      <strong>Exemples :</strong> uniquement des spécimens de pathologie, uniquement des spécimens de banque de sang.<br><br>Si vous avez plusieurs liste de repérage dans le même envoi, scanner en une que vous mettrez en <strong>évidence</strong>.<br>
+      Un numéro Hors-SILP sera généré automatiquement. Confirmez avant de continuer.
+    </div>
+    <div class="confirm-btns">
+      <button class="bsec" onclick="cancelNoList()">Annuler</button>
+      <button class="bp" onclick="confirmNoList()" style="background:var(--warning)">J'ai compris — Enregistrer l'envoi</button>
+    </div>
+  </div>
+</div>
+
+<div id="edit-envoi-modal" onclick="if(event.target===this)closeEditEnvoi()" style="display:none;position:fixed;inset:0;background:rgba(15,42,61,.5);z-index:350;align-items:center;justify-content:center">
+  <div class="gbox" style="max-width:680px;width:calc(100% - 32px);max-height:90vh;display:flex;flex-direction:column">
+    <div class="ghdr">
+      <span style="font-size:15px;font-weight:500">Modifier l'envoi — N°&nbsp;<span id="e-nlist-ro" style="font-family:var(--fm)"></span></span>
+      <button class="bsec" onclick="closeEditEnvoi()" style="padding:5px 12px;font-size:12px">Annuler</button>
+    </div>
+    <div style="overflow-y:auto;padding:1.25rem;flex:1;min-height:0">
+      <div style="background:var(--b2);border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--t2);display:flex;gap:20px;flex-wrap:wrap">
+        <span><strong style="color:var(--t1)">Expéditeur :</strong> <span id="e-exp-ro"></span></span>
+        <span><strong style="color:var(--t1)">Destinataire :</strong> <span id="e-dest-ro"></span></span>
+      </div>
+      <div class="banner berr" id="e-serr"></div>
+      <div class="fg">
+        <div class="fgg">
+          <label>Transporteur <span style="color:var(--te)">*</span></label>
+          <select id="e-trans"><option value="">— Sélectionner —</option></select>
+        </div>
+        <div class="fgg">
+          <label>Type de spécimen <span style="color:var(--te)">*</span></label>
+          <select id="e-tspec"></select>
+        </div>
+        <div class="fgg">
+          <label>Nb échantillons <span style="font-size:10px;color:var(--t3)">(optionnel)</span></label>
+          <input type="number" id="e-ntub" min="1" placeholder="—"/>
+        </div>
+        <div class="fgg full">
+          <label>Température d'envoi <span style="color:var(--te)">*</span></label>
+          <div class="tpills" id="e-tpills-c"></div>
+        </div>
+        <div class="fgg full" id="e-glace-section" style="display:none">
+          <label>Type de réfrigérant <span style="color:var(--te)">*</span></label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button type="button" class="bsm" id="e-btn-glace-oui" onclick="setEditGlace(true)" style="flex:1;justify-content:center">🧊 Glace sèche (UN 1845)</button>
+            <button type="button" class="bsm" id="e-btn-glace-non" onclick="setEditGlace(false)" style="flex:1;justify-content:center">❄️ Sachet réfrigérant</button>
+          </div>
+        </div>
+        <div class="fgg full">
+          <label>Département(s) <span style="color:var(--te)">*</span></label>
+          <div class="dpills">
+            <div class="dpill dp-bio" id="edp-BIOCHIMIE" onclick="tEditDept('BIOCHIMIE')">Biochimie</div>
+            <div class="dpill dp-hema" id="edp-HEMATOLOGIE" onclick="tEditDept('HEMATOLOGIE')">Hématologie / BDS</div>
+            <div class="dpill dp-micro" id="edp-MICROBIOLOGIE" onclick="tEditDept('MICROBIOLOGIE')">Microbiologie / Séro</div>
+            <div class="dpill dp-patho" id="edp-PATHOLOGIE" onclick="tEditDept('PATHOLOGIE')">Pathologie / Cyto</div>
+          </div>
+        </div>
+        <div class="fgg full">
+          <label>Notes / instructions</label>
+          <textarea id="e-notes" placeholder="Précautions particulières, nature des échantillons..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div style="padding:1rem 1.25rem;border-top:1px solid var(--b3);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+      <button class="bsec" onclick="closeEditEnvoi()">Annuler</button>
+      <button class="bp" onclick="saveEditEnvoi()">Enregistrer les modifications</button>
+    </div>
+  </div>
+</div>
+
+<div id="gmod" onclick="if(event.target===this)closeGMod()">
+  <div class="gbox"><div class="ghdr"><span style="font-size:15px;font-weight:500">Détail de l'envoi</span><button class="bsec" onclick="closeGMod()" style="padding:5px 12px;font-size:12px">Fermer</button></div><div class="dgrid" id="gmod-body"></div><div id="gmod-footer"></div></div>
+</div>
+
+<div id="success-modal" onclick="if(event.target===this)closeSuccessModal()" style="display:none;position:fixed;inset:0;background:rgba(15,42,61,.5);z-index:350;align-items:center;justify-content:center">
+  <div class="success-box">
+    <div class="success-icon">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#2E8B57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="success-title" id="success-title-el">Envoi enregistré</div>
+    <div class="success-msg" id="success-modal-msg"></div>
+    <div class="success-btns">
+      <button class="bp" id="success-print-btn" style="justify-content:center;align-items:center;gap:6px;display:none"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6H2a1 1 0 00-1 1v5a1 1 0 001 1h12a1 1 0 001-1V7a1 1 0 00-1-1h-2"/><rect x="4" y="1" width="8" height="7" rx="1"/><path d="M4 11h8v4H4z"/></svg>Imprimer le bordereau</button>
+      <button class="bsec" id="success-close-btn" onclick="closeSuccessModal()" style="justify-content:center">Nouvel envoi</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-modal">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirm-title">Confirmation</div>
+    <div class="confirm-msg" id="confirm-msg"></div>
+    <div class="confirm-btns">
+      <button class="bsec" id="confirm-cancel">Annuler</button>
+      <button class="bp" id="confirm-ok">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal saisie confirmation fax HG -->
+<div id="hg-fax-modal" onclick="if(event.target===this)closeHGFaxModal()" style="display:none;position:fixed;inset:0;background:rgba(15,42,61,.5);z-index:350;align-items:center;justify-content:center">
+  <div class="gbox" style="max-width:520px;width:calc(100% - 32px);max-height:90vh;display:flex;flex-direction:column">
+    <div class="ghdr">
+      <span style="font-size:15px;font-weight:500">Saisir confirmation par fax — N°&nbsp;<span id="hgfax-num" style="font-family:var(--fm)"></span></span>
+      <button class="bsec" onclick="closeHGFaxModal()" style="padding:5px 12px;font-size:12px">Annuler</button>
+    </div>
+    <div style="overflow-y:auto;padding:1.25rem;flex:1;min-height:0">
+      <div class="banner berr" id="hgfax-err"></div>
+      <div class="fg" style="grid-template-columns:1fr 1fr">
+        <div class="fgg"><label>Date et heure de réception <span style="color:var(--te)">*</span></label><input type="datetime-local" id="hgfax-dt"/></div>
+        <div class="fgg"><label>Reçu par <span style="color:var(--te)">*</span></label><input type="text" id="hgfax-par" placeholder="Nom et prénom"/></div>
+        <div class="fgg full">
+          <label>Conformité <span style="color:var(--te)">*</span></label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button type="button" class="bsm" id="hgfax-btn-oui" onclick="setHgFaxConforme(true)" style="flex:1;justify-content:center">✓ Conforme</button>
+            <button type="button" class="bsm" id="hgfax-btn-non" onclick="setHgFaxConforme(false)" style="flex:1;justify-content:center;color:var(--te)">✗ Non conforme</button>
+          </div>
+        </div>
+        <div class="fgg full gone" id="hgfax-nc-section">
+          <label>Type(s) de non-conformité <span style="color:var(--te)">*</span></label>
+          <div class="nc-cb-grid">
+            <label class="nc-cb-lbl"><input type="checkbox" value="Température" class="hgfax-nc-cb"/> Température</label>
+            <label class="nc-cb-lbl"><input type="checkbox" value="Spécimen" class="hgfax-nc-cb"/> Spécimen</label>
+            <label class="nc-cb-lbl"><input type="checkbox" value="Emballage" class="hgfax-nc-cb"/> Emballage</label>
+            <label class="nc-cb-lbl"><input type="checkbox" value="Transport" class="hgfax-nc-cb"/> Transport</label>
+            <label class="nc-cb-lbl"><input type="checkbox" value="Documentation" class="hgfax-nc-cb"/> Documentation</label>
+            <label class="nc-cb-lbl"><input type="checkbox" value="Autre" class="hgfax-nc-cb"/> Autre</label>
+          </div>
+          <div class="fgg" style="margin-top:10px"><label>Détails <span style="color:var(--te)">*</span></label><textarea id="hgfax-comment" placeholder="Décrivez la non-conformité observée…" rows="3"></textarea></div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:1rem 1.25rem;border-top:1px solid var(--b3);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+      <button class="bsec" onclick="closeHGFaxModal()">Annuler</button>
+      <button class="bp" onclick="saveHGFaxConfirm()">Enregistrer la confirmation</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal édition envoi HG -->
+<div id="hg-edit-modal" onclick="if(event.target===this)closeHGEditModal()" style="display:none;position:fixed;inset:0;background:rgba(15,42,61,.5);z-index:350;align-items:center;justify-content:center">
+  <div class="gbox" style="max-width:700px;width:calc(100% - 32px);max-height:90vh;display:flex;flex-direction:column">
+    <div class="ghdr">
+      <span style="font-size:15px;font-weight:500">Modifier l'envoi Hors-grappe — N°&nbsp;<span id="hge-num-ro" style="font-family:var(--fm)"></span></span>
+      <button class="bsec" onclick="closeHGEditModal()" style="padding:5px 12px;font-size:12px">Annuler</button>
+    </div>
+    <div style="overflow-y:auto;padding:1.25rem;flex:1;min-height:0">
+      <div style="background:var(--b2);border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--t2);display:flex;gap:20px;flex-wrap:wrap">
+        <span><strong style="color:var(--t1)">Expéditeur :</strong> <span id="hge-exp-ro"></span></span>
+        <span><strong style="color:var(--t1)">Destinataire :</strong> <span id="hge-dest-ro"></span></span>
+        <span><strong style="color:var(--t1)">Source :</strong> <span id="hge-src-ro"></span></span>
+      </div>
+      <div class="banner berr" id="hge-err"></div>
+      <div class="fg">
+        <div class="fgg">
+          <label>Transporteur <span style="color:var(--te)">*</span></label>
+          <select id="hge-trans"><option value="">— Sélectionner —</option></select>
+        </div>
+        <div class="fgg">
+          <label>Type de spécimen <span style="color:var(--te)">*</span></label>
+          <select id="hge-tspec"></select>
+        </div>
+        <div class="fgg">
+          <label>Nb échantillons <span style="font-size:10px;color:var(--t3)">(optionnel)</span></label>
+          <input type="number" id="hge-ntub" min="1" placeholder="—"/>
+        </div>
+        <div class="fgg full">
+          <label>Température d'envoi <span style="color:var(--te)">*</span></label>
+          <div class="tpills" id="hge-tpills-c"></div>
+        </div>
+        <div class="fgg full" id="hge-glace-section" style="display:none">
+          <label>Type de réfrigérant <span style="color:var(--te)">*</span></label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button type="button" class="bsm" id="hge-btn-glace-oui" onclick="setHgeSGC(true)" style="flex:1;justify-content:center">🧊 Glace sèche (UN 1845)</button>
+            <button type="button" class="bsm" id="hge-btn-glace-non" onclick="setHgeSGC(false)" style="flex:1;justify-content:center">❄️ Sachet réfrigérant</button>
+          </div>
+        </div>
+        <div class="fgg full" id="hge-lists-section" style="display:none">
+          <label>N° listes de repérage <span style="color:var(--te)">*</span></label>
+          <div style="display:flex;gap:8px;margin-bottom:6px">
+            <div style="position:relative;flex:1;display:flex;align-items:center"><svg style="position:absolute;left:9px;pointer-events:none;opacity:.45;flex-shrink:0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 7v10"/><path d="M12 7v10"/><path d="M17 7v10"/></svg><input type="text" id="hge-nlist-input" placeholder="Scanner liste SILP (chiffres uniquement)" inputmode="numeric" onkeydown="if(event.key==='Enter'){event.preventDefault();addHgeList();}" style="width:100%;padding-left:33px"/></div>
+            <button type="button" class="bsm" onclick="addHgeList()" style="flex-shrink:0">+ Ajouter</button>
+          </div>
+          <div id="hge-nlist-chips" class="nlist-chips"></div>
+          <div class="field-err" id="hge-nlist-err"></div>
+        </div>
+        <div class="fgg full">
+          <label>Notes / instructions</label>
+          <textarea id="hge-notes" placeholder="Précautions particulières, nature des échantillons..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div style="padding:1rem 1.25rem;border-top:1px solid var(--b3);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
+      <button class="bsec" onclick="closeHGEditModal()">Annuler</button>
+      <button class="bp" onclick="saveEditHGEnvoi()">Enregistrer les modifications</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal succès HG (impression obligatoire) -->
+<div id="hg-success-modal" onclick="if(event.target===this&&document.getElementById('hg-printed-cb').checked)closeHGSuccessModal()" style="display:none;position:fixed;inset:0;background:rgba(15,42,61,.5);z-index:350;align-items:center;justify-content:center">
+  <div class="success-box" style="max-width:460px">
+    <div class="success-icon">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#2E8B57" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="success-title">Envoi Hors-grappe enregistré</div>
+    <div class="success-msg" id="hg-success-msg"></div>
+    <div style="background:var(--warning-soft);border:1px solid var(--bw2);border-radius:var(--rm);padding:10px 14px;margin:12px 0;text-align:left">
+      <div style="font-size:12px;font-weight:700;color:var(--warning);margin-bottom:8px">⚠ Impression obligatoire avant envoi</div>
+      <div style="font-size:11px;color:var(--t2);line-height:1.5;margin-bottom:10px">Le bordereau et la feuille de confirmation F-G-74 doivent être imprimés et insérés dans le colis.</div>
+      <button class="bp" id="hg-success-print-btn" onclick="printHGDocs()" style="width:100%;justify-content:center;gap:6px;display:flex"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6H2a1 1 0 00-1 1v5a1 1 0 001 1h12a1 1 0 001-1V7a1 1 0 00-1-1h-2"/><rect x="4" y="1" width="8" height="7" rx="1"/><path d="M4 11h8v4H4z"/></svg>Imprimer bordereau + F-G-74</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;cursor:pointer;margin-bottom:12px">
+      <input type="checkbox" id="hg-printed-cb" onchange="toggleHGClose()" style="width:16px;height:16px;cursor:pointer;flex:none"/>
+      J'ai imprimé et inséré les documents dans le colis
+    </label>
+    <div class="success-btns">
+      <button class="bsec" id="hg-success-close-btn" onclick="closeHGSuccessModal()" disabled style="justify-content:center;opacity:.4;cursor:not-allowed">Nouvel envoi</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- Configuration Supabase par domaine -->
+<script src="/js/config.js"></script>
+
+<!-- Librairies externes -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+<!-- Barcode -->
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<!-- QR Code — qrcodejs (build navigateur confirmé, génère canvas + img) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- Application -->
+<script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "optilab-envois",
+  "version": "1.3.0",
+  "description": "Traçabilité OPTILAB — BSL-GAS",
+  "scripts": {
+    "dev": "npx live-server public --port=3000 --no-browser"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
