@@ -5,6 +5,15 @@ Application web de gestion et de traçabilité des envois d'échantillons biolog
 > Développé par **Patxi VIEL** — CISSS Bas-Saint-Laurent
 
 ---
+## Documentation
+
+| Fichier | Contenu |
+|---------|---------|
+| [DRI.md](DRI.md) | Dossier technique — architecture, sécurité, alternatives, maintenance |
+| [CAPACITE_SUPABASE.md](CAPACITE_SUPABASE.md) | Estimation de capacité et bande passante Supabase Free |
+| [DOCS.md](DOCS.md) | Documentation fonctionnelle — règles métier, schéma, RLS, fonctions SQL |
+| [CHANGELOG.md](CHANGELOG.md) | Historique des versions et modifications |
+
 
 ## Table des matières
 
