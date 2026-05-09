@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Confirmation de réception / Receipt Confirmation — OPTILAB BSL-GAS</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/img/favicon-180.png"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,system-ui,sans-serif;background:#f0f4f8;color:#1a2e3d;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:0 0px 40px;position:relative}
+body::before{content:'';position:fixed;inset:0;background-image:url('/img/cross-pattern.svg');background-size:400px 400px;background-repeat:repeat;opacity:.18;filter:invert(1);pointer-events:none;z-index:0}
+.hdr,#main{position:relative;z-index:1}
+.hdr{background:#1C3A52;width:100%;padding:14px 24px;display:flex;align-items:center;gap:14px;margin-bottom:28px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.hdr img{height:36px;width:auto}
+.hdr-title{font-size:13px;font-weight:700;color:rgba(255,255,255,.85)}
+.hdr-sub{font-size:10px;color:rgba(255,255,255,.42);margin-top:1px}
+.en{color:#6e7c86;font-style:italic;font-size:.88em;font-weight:400}
+.card{background:#fff;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.08);padding:24px 28px;width:100%;max-width:580px;margin-bottom:18px}
+.card-title{font-size:14px;font-weight:700;color:#1C3A52;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #e2e8ef;display:flex;align-items:center;gap:8px}
+.info-row{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid #f0f4f8;font-size:13px}
+.info-row:last-child{border-bottom:none}
+.info-lbl{color:#6e7c86;font-weight:600;min-width:160px;flex-shrink:0}
+.info-val{color:#1a2e3d;font-weight:500}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700}
+.bt{background:#D7EEF9;color:#1B6E94}
+.br{background:#E1F2E8;color:#2E8B57}
+.bp2{background:#FBE3E1;color:#B3261E}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;font-weight:700;color:#6e7c86;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
+.field label .en{text-transform:none;letter-spacing:0}
+.field input,.field textarea{width:100%;padding:9px 12px;border:1.5px solid #d0dae2;border-radius:8px;font-size:13px;font-family:inherit;color:#1a2e3d;background:#fff;transition:border-color .15s}
+.field input:focus,.field textarea:focus{outline:none;border-color:#2BAEDD}
+.field textarea{resize:vertical;min-height:72px}
+.conform-btns{display:flex;gap:10px;margin-top:6px}
+.conform-btn{flex:1;padding:10px;border:2px solid #d0dae2;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;background:#fff;color:#6e7c86;transition:all .15s;font-family:inherit;line-height:1.3}
+.conform-btn.oui.active{border-color:#2E8B57;background:#E1F2E8;color:#2E8B57}
+.conform-btn.non.active{border-color:#B3261E;background:#FBE3E1;color:#B3261E}
+.nc-section{display:none;margin-top:12px;padding:14px;background:#fdf3f2;border-radius:8px;border:1px solid #f5c5c2}
+.nc-section.show{display:block}
+.nc-checks{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.nc-check{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;cursor:pointer}
+.nc-check input{width:15px;height:15px;cursor:pointer;accent-color:#B3261E}
+.btn-primary{width:100%;padding:12px;background:#2BAEDD;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s;margin-top:4px}
+.btn-primary:hover{background:#1B6E94}
+.btn-primary:disabled{background:#b0cdd9;cursor:not-allowed}
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px;display:none}
+.alert.show{display:block}
+.alert-err{background:#FBE3E1;color:#B3261E;border:1px solid #f5c5c2}
+.alert-ok{background:#E1F2E8;color:#2E8B57;border:1px solid #b5ddc4}
+.already-confirmed{text-align:center;padding:20px 0}
+.already-confirmed .icon{width:54px;height:54px;border-radius:50%;background:#E1F2E8;display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px}
+.already-confirmed .msg{font-size:15px;font-weight:700;color:#2E8B57;margin-bottom:6px}
+.already-confirmed .sub{font-size:12px;color:#6e7c86;line-height:1.6}
+.spinner-wrap{text-align:center;padding:40px;color:#6e7c86;font-size:13px}
+.spin{width:28px;height:28px;border:2.5px solid #d0dae2;border-top-color:#2BAEDD;border-radius:50%;animation:rot .7s linear infinite;margin:0 auto 12px}
+@keyframes rot{to{transform:rotate(360deg)}}
+.not-found{text-align:center;padding:40px 20px}
+.not-found h2{font-size:18px;color:#B3261E;margin-bottom:8px}
+.not-found p{font-size:13px;color:#6e7c86}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <img src="/img/optilab-official-blanc.png" alt="OPTILAB BSL-Gaspésie"/>
+  <div>
+    <div class="hdr-title">Confirmation de réception de colis <span class="en">/ Shipment Receipt Confirmation</span></div>
+    <div class="hdr-sub">OPTILAB BSL-GAS · F-G-74</div>
+  </div>
+</div>
+
+<div id="main" style="width:100%;max-width:580px">
+  <div class="spinner-wrap" id="loading">
+    <div class="spin"></div>
+    Chargement… <span class="en">/ Loading…</span>
+  </div>
+</div>
+
+<!-- Configuration Supabase par domaine -->
+<script src="/js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function esc(s){
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function fdt(iso){
+    if(!iso)return'—';
+    var d=new Date(iso);
+    return d.toLocaleDateString('fr-CA',{day:'2-digit',month:'2-digit',year:'numeric'})+
+           ' '+d.toLocaleTimeString('fr-CA',{hour:'2-digit',minute:'2-digit'});
+  }
+  function fdtLongFr(iso){
+    if(!iso)return'—';
+    var d=new Date(iso);
+    return d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})+' à '+d.toLocaleTimeString('fr-CA',{hour:'2-digit',minute:'2-digit'});
+  }
+  function fdtLongEn(iso){
+    if(!iso)return'—';
+    var d=new Date(iso);
+    return d.toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric',year:'numeric'})+' at '+d.toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  var _qs = new URLSearchParams(window.location.search);
+  var token = window.location.pathname.replace(/^\/confirm\/?/,'').replace(/\/$/,'')
+    || _qs.get('token') || '';
+  var _qsNumero = _qs.get('n') || '';
+  var _qsCode   = _qs.get('c') || '';
+
+  var confirmByNumero = true; // valeur par défaut, overridée par get_hg_confirm_cfg()
+
+  var NC_ITEMS = [
+    {id:'Température', fr:'Température', en:'Temperature'},
+    {id:'Spécimen',    fr:'Spécimen',    en:'Specimen'},
+    {id:'Emballage',   fr:'Emballage',   en:'Packaging'},
+    {id:'Transport',   fr:'Transport',   en:'Transport'},
+    {id:'Documentation',fr:'Documentation',en:'Documentation'},
+    {id:'Autre',       fr:'Autre',       en:'Other'}
+  ];
+
+  var currentEnvoi = null;
+  var conformeVal  = null;
+
+  async function init(){
+    // Charger la config publique
+    try{
+      var cfg=await sb.rpc('get_hg_confirm_cfg');
+      if(!cfg.error&&cfg.data)confirmByNumero=cfg.data.confirm_by_numero!==false;
+    }catch(e){}
+
+    // URL courte scannée depuis le code-barres : ?n=HG-…&c=FEEC80
+    if(!token && _qsNumero && _qsCode){
+      await loadByNumeroCode(_qsNumero, _qsCode);
+      return;
+    }
+    if(!token){
+      if(confirmByNumero){
+        renderNumeroForm();
+      } else {
+        renderNotFound('Lien invalide. Aucun identifiant de confirmation trouvé dans l\'URL.<br><em class="en">Invalid link. No confirmation token found in the URL.</em>');
+      }
+      return;
+    }
+    await loadByToken(token);
+  }
+
+  async function loadByNumeroCode(num, code){
+    try{
+      var r=await sb.rpc('get_envoi_hgrappe_by_numero',{p_numero:num.toUpperCase(),p_verify_code:code.toUpperCase()});
+      if(r.error||(r.data&&r.data.error)){
+        renderNotFound('Lien invalide ou code de vérification incorrect.<br><em class="en">Invalid link or incorrect verification code.</em>');
+        return;
+      }
+      token=r.data.token;
+      currentEnvoi=r.data;
+      if(currentEnvoi.already_confirmed){renderAlreadyConfirmed(currentEnvoi);}
+      else{renderForm(currentEnvoi);}
+    }catch(e){
+      renderNotFound('Erreur réseau. Vérifiez votre connexion et réessayez.<br><em class="en">Network error. Check your connection and try again.</em>');
+    }
+  }
+
+  async function loadByToken(t){
+    try{
+      var r = await sb.rpc('get_envoi_hgrappe_by_token',{p_token:t});
+      if(r.error||!r.data||r.data.error){
+        renderNotFound('Ce lien de confirmation est invalide ou a expiré.<br><em class="en">This confirmation link is invalid or has expired.</em>');
+        return;
+      }
+      currentEnvoi = r.data;
+      if(currentEnvoi.already_confirmed){
+        renderAlreadyConfirmed(currentEnvoi);
+      } else {
+        renderForm(currentEnvoi);
+      }
+    }catch(e){
+      renderNotFound('Erreur réseau. Vérifiez votre connexion et réessayez.<br><em class="en">Network error. Check your connection and try again.</em>');
+    }
+  }
+
+  function renderNumeroForm(){
+    document.getElementById('main').innerHTML=
+      '<div class="card">'
+      +'<div class="card-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1"/></svg>'
+      +'Accéder à la confirmation <span class="en">/ Access Confirmation</span></div>'
+      +'<p style="font-size:13px;color:#6e7c86;margin-bottom:16px;line-height:1.6">'
+      +'Saisissez le numéro d\'envoi et le code de vérification imprimés sur votre document F-G-74.<br>'
+      +'<em class="en">Enter the shipment number and verification code printed on your F-G-74 document.</em></p>'
+      +'<div class="alert alert-err" id="nf-err" role="alert" aria-live="polite"></div>'
+      +'<div class="field">'
+        +'<label>N° d\'envoi <span class="en">/ Shipment No.</span> <span style="color:#B3261E">*</span></label>'
+        +'<input type="text" id="nf-num" placeholder="HG-AAMMJJ-NNNNN" autocomplete="off" '
+          +'style="font-family:monospace;font-size:15px;letter-spacing:.06em;text-transform:uppercase" '
+          +'oninput="this.value=this.value.toUpperCase()" '
+          +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();var c=document.getElementById(\'nf-code\');if(c){c.focus();c.select();}}"/>'
+      +'</div>'
+      +'<div class="field">'
+        +'<label>Code de vérification <span class="en">/ Verification code</span> <span style="color:#B3261E">*</span></label>'
+        +'<input type="text" id="nf-code" placeholder="Ex. A3F9B2" maxlength="6" autocomplete="off" '
+          +'style="font-family:monospace;font-size:18px;letter-spacing:.16em;text-transform:uppercase;width:160px" '
+          +'oninput="this.value=this.value.toUpperCase().replace(/[^A-F0-9]/g,\'\')" '
+          +'onkeydown="if(event.key===\'Enter\'){event.preventDefault();submitNumeroLookup();}"/>'
+        +'<div style="font-size:11px;color:#6e7c86;margin-top:4px">6 caractères (lettres A–F et chiffres) imprimés sous le N° d\'envoi sur le F-G-74.<br><em class="en">6 characters (letters A–F and digits) printed below the shipment number on the F-G-74.</em></div>'
+      +'</div>'
+      +'<button class="btn-primary" onclick="submitNumeroLookup()">Rechercher <span class="en">/ Search</span></button>'
+      +'</div>';
+    setTimeout(function(){var el=document.getElementById('nf-num');if(el)el.focus();},50);
+  }
+
+  window.submitNumeroLookup = async function(){
+    var err=document.getElementById('nf-err');err.classList.remove('show');
+    var num=(document.getElementById('nf-num').value||'').trim().toUpperCase();
+    var code=(document.getElementById('nf-code').value||'').trim().toUpperCase();
+    if(!num){err.innerHTML='Veuillez saisir le numéro d\'envoi. / Please enter the shipment number.';err.classList.add('show');return;}
+    if(!code||code.length!==6){err.innerHTML='Le code de vérification doit contenir 6 caractères. / Verification code must be 6 characters.';err.classList.add('show');return;}
+    var btn=document.querySelector('#main .btn-primary');if(btn){btn.disabled=true;btn.textContent='Recherche… / Searching…';}
+    try{
+      var r=await sb.rpc('get_envoi_hgrappe_by_numero',{p_numero:num,p_verify_code:code});
+      if(r.error||(r.data&&r.data.error)){
+        var e2=r.data&&r.data.error;
+        var msg=e2==='not_found'
+          ?'Numéro d\'envoi introuvable. Vérifiez le numéro et réessayez.<br><em class="en">Shipment number not found. Check the number and try again.</em>'
+          :e2==='wrong_code'
+          ?'Code de vérification incorrect. Vérifiez le code imprimé sur le document F-G-74.<br><em class="en">Incorrect verification code. Check the code printed on the F-G-74 document.</em>'
+          :'Erreur réseau. Vérifiez votre connexion et réessayez.<br><em class="en">Network error. Try again.</em>';
+        err.innerHTML=msg;err.classList.add('show');
+        if(btn){btn.disabled=false;btn.textContent='Rechercher / Search';}
+        return;
+      }
+      // Succès — le token est dans la réponse, on l'utilise pour la suite
+      token=r.data.token;
+      currentEnvoi=r.data;
+      if(currentEnvoi.already_confirmed){
+        renderAlreadyConfirmed(currentEnvoi);
+      } else {
+        renderForm(currentEnvoi);
+      }
+    }catch(ex){
+      err.innerHTML='Erreur réseau. Vérifiez votre connexion et réessayez.<br><em class="en">Network error. Try again.</em>';
+      err.classList.add('show');
+      if(btn){btn.disabled=false;btn.textContent='Rechercher / Search';}
+    }
+  };
+
+  function statusBadge(s){
+    var cfg={
+      'En transit':{bg:'#D7EEF9',color:'#1B6E94',fr:'En transit',en:'In Transit'},
+      'Reçu':{bg:'#E1F2E8',color:'#2E8B57',fr:'Reçu',en:'Received'},
+      'Problème':{bg:'#FBE3E1',color:'#B3261E',fr:'Problème',en:'Issue'},
+      'Aucune réponse reçue':{bg:'#FCE7F3',color:'#9D174D',fr:'Aucune réponse reçue',en:'No Response Received'}
+    };
+    var c=cfg[s]||cfg['En transit'];
+    return '<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:'+c.bg+';color:'+c.color+'">'+c.fr+' <em style="font-weight:400;margin-left:4px;font-size:10px">/ '+c.en+'</em></span>';
+  }
+
+  function infoRows(e){
+    var rows=[
+      ['N° d\'envoi <span class="en">/ Shipment No.</span>',
+        '<span style="font-family:monospace;font-weight:700;color:#1B6E94">'+esc(e.numero)+'</span>'],
+      ['Statut <span class="en">/ Status</span>', statusBadge(e.statut||'En transit')],
+      ['Expéditeur <span class="en">/ Sender</span>', esc(e.exp)],
+      ['Destinataire <span class="en">/ Recipient</span>', e.dest_parent?esc(e.dest_parent)+'<br><span style="font-size:11px;color:#6e7c86">↳ '+esc(e.dest)+'</span>':esc(e.dest)],
+      ['Date d\'envoi <span class="en">/ Shipment date</span>', fdt(e.ts_envoi)],
+      ['Température <span class="en">/ Temperature</span>', esc(e.temperature)],
+      ['Transporteur <span class="en">/ Carrier</span>', esc(e.transporteur)],
+      e.nb_echantillons?['Nb spécimens <span class="en">/ No. of specimens</span>',esc(e.nb_echantillons)]:null
+    ].filter(Boolean);
+    return rows.map(function(r){
+      return '<div class="info-row"><span class="info-lbl">'+r[0]+'</span><span class="info-val">'+r[1]+'</span></div>';
+    }).join('');
+  }
+
+  function renderAlreadyConfirmed(e){
+    var conforme = e.confirm_conforme;
+    var ncTypes  = Array.isArray(e.confirm_nc_types) ? e.confirm_nc_types : [];
+    var methodFr = e.confirm_method==='fax' ? 'par fax' : 'en ligne';
+    var methodEn = e.confirm_method==='fax' ? 'by fax' : 'online';
+    document.getElementById('main').innerHTML='<div class="card">'
+      +'<div class="card-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>'
+      +'Informations de l\'envoi <span class="en">/ Shipment Information</span></div>'
+      +infoRows(e)+'</div>'
+      +'<div class="card"><div class="already-confirmed">'
+      +'<div class="icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="'+(conforme?'#2E8B57':'#B3261E')+'" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>'
+      +'<div class="msg">'+(conforme
+        ?'Réception confirmée <span class="en">/ Receipt Confirmed</span>'
+        :'Réception confirmée avec non-conformité <span class="en">/ Receipt Confirmed with Non-conformity</span>')
+      +'</div>'
+      +'<div class="sub">'
+      +'Confirmé '+methodFr+' le '+fdtLongFr(e.ts_confirm)+'<br>'
+      +'<em class="en">Confirmed '+methodEn+' · '+fdtLongEn(e.ts_confirm)+'</em><br>'
+      +(e.confirm_recu_par?'Reçu par / Received by : <strong>'+esc(e.confirm_recu_par)+'</strong><br>':'')
+      +(ncTypes.length?'Non-conformité / Non-conformity : <strong>'+ncTypes.map(function(x){return esc(x);}).join(', ')+'</strong><br>':'')
+      +(e.confirm_commentaire?'<em>'+esc(e.confirm_commentaire)+'</em>':'')
+      +'</div></div></div>';
+  }
+
+  function renderForm(e){
+    var now = new Date();
+    var localDt = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')
+                 +'T'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    document.getElementById('main').innerHTML='<div class="card">'
+      +'<div class="card-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>'
+      +'Informations de l\'envoi <span class="en">/ Shipment Information</span></div>'
+      +infoRows(e)+'</div>'
+      +'<div class="card">'
+      +'<div class="card-title"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l4 4 8-8"/></svg>'
+      +'Confirmer la réception <span class="en">/ Confirm Receipt</span></div>'
+      +'<div class="alert alert-err" id="ferr" role="alert" aria-live="polite"></div>'
+      +'<div class="field"><label>Date et heure de réception <span class="en">/ Receipt date &amp; time</span> <span style="color:#B3261E">*</span></label>'
+        +'<input type="datetime-local" id="f-dt" value="'+localDt+'"/></div>'
+      +'<div class="field"><label>Reçu par <span class="en">/ Received by</span> <span style="color:#B3261E">*</span></label>'
+        +'<input type="text" id="f-par" placeholder="Nom et prénom / Full name" onkeydown="if(event.key===\'Enter\'){event.preventDefault();submitConfirm();}"/></div>'
+      +'<div class="field"><label>Conformité <span class="en">/ Conformity</span> <span style="color:#B3261E">*</span></label>'
+        +'<div class="conform-btns">'
+        +'<button class="conform-btn oui" id="btn-oui" onclick="setConforme(true)">✓ &nbsp;Conforme <span class="en">/ Conforming</span></button>'
+        +'<button class="conform-btn non" id="btn-non" onclick="setConforme(false)">✗ &nbsp;Non conforme <span class="en">/ Non-conforming</span></button>'
+        +'</div>'
+        +'<div class="nc-section" id="nc-section">'
+        +'<div style="font-size:12px;font-weight:700;color:#B3261E;margin-bottom:8px">Type(s) de non-conformité <span class="en">/ Type(s) of non-conformity</span> <span style="color:#B3261E">*</span></div>'
+        +'<div class="nc-checks">'
+        +NC_ITEMS.map(function(n){
+          return '<label class="nc-check"><input type="checkbox" value="'+n.id+'" id="nc-'+n.id+'"/> '
+            +n.fr+' <span class="en">/ '+n.en+'</span></label>';
+        }).join('')
+        +'</div>'
+        +'<div class="field" style="margin-bottom:0"><label>Détails de la non-conformité <span class="en">/ Non-conformity details</span> <span style="color:#B3261E">*</span></label>'
+        +'<textarea id="f-comment" placeholder="Décrivez la non-conformité observée… / Describe the non-conformity observed…"></textarea></div>'
+        +'</div>'
+      +'</div>'
+      +'<button class="btn-primary" id="f-submit" onclick="submitConfirm()">Confirmer la réception / Confirm Receipt &nbsp;<kbd style="font-size:11px;opacity:.75;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);border-radius:4px;padding:1px 5px;font-family:inherit">↵</kbd></button>'
+      +'<div class="alert alert-ok" id="fsuc" role="status" aria-live="polite"></div>'
+      +'</div>';
+    window.setConforme(true);
+    setTimeout(function(){var fp=document.getElementById('f-par');if(fp)fp.focus();},50);
+  }
+
+  window.setConforme = function(val){
+    conformeVal = val;
+    var bO=document.getElementById('btn-oui'),bN=document.getElementById('btn-non'),nc=document.getElementById('nc-section');
+    if(bO)bO.classList.toggle('active',val===true);
+    if(bN)bN.classList.toggle('active',val===false);
+    if(nc)nc.classList.toggle('show',val===false);
+  };
+
+  window.submitConfirm = async function(){
+    var err=document.getElementById('ferr');
+    err.classList.remove('show');
+    var dt=document.getElementById('f-dt').value;
+    var par=document.getElementById('f-par').value.trim();
+    if(!dt){
+      err.innerHTML='Veuillez indiquer la date et l\'heure de réception.<br><em class="en">Please enter the receipt date and time.</em>';
+      err.classList.add('show');return;
+    }
+    if(!par){
+      err.innerHTML='Veuillez indiquer votre nom. / Please enter your name.';
+      err.classList.add('show');return;
+    }
+    if(conformeVal===null){
+      err.innerHTML='Veuillez indiquer si le colis est conforme ou non. / Please indicate whether the shipment is conforming or not.';
+      err.classList.add('show');return;
+    }
+    var ncTypes=[];
+    var comment='';
+    if(conformeVal===false){
+      NC_ITEMS.forEach(function(n){var cb=document.getElementById('nc-'+n.id);if(cb&&cb.checked)ncTypes.push(n.id);});
+      comment=document.getElementById('f-comment').value.trim();
+      if(!ncTypes.length){
+        err.innerHTML='Veuillez cocher au moins un type de non-conformité. / Please check at least one type of non-conformity.';
+        err.classList.add('show');return;
+      }
+      if(!comment){
+        err.innerHTML='Veuillez décrire la non-conformité. / Please describe the non-conformity.';
+        err.classList.add('show');return;
+      }
+    }
+    var btn=document.getElementById('f-submit');btn.disabled=true;
+    btn.textContent='Enregistrement… / Saving…';
+    try{
+      var r=await sb.rpc('confirm_envoi_hgrappe',{
+        p_token:token, p_conforme:conformeVal, p_nc_types:ncTypes,
+        p_commentaire:comment, p_recu_par:par, p_ts_confirm:new Date(dt).toISOString()
+      });
+      if(r.error||(r.data&&r.data.error)){
+        var msg=r.data&&r.data.error==='not_found_or_already_confirmed'
+          ?'Cet envoi a déjà été confirmé ou le lien est invalide.<br><em class="en">This shipment has already been confirmed or the link is invalid.</em>'
+          :'Erreur / Error : '+(r.error?r.error.message:(r.data&&r.data.error));
+        err.innerHTML=msg;err.classList.add('show');
+        btn.disabled=false;btn.textContent='Confirmer la réception / Confirm Receipt';return;
+      }
+      var suc=document.getElementById('fsuc');
+      suc.innerHTML=conformeVal
+        ?'Réception confirmée avec succès. Merci. <em class="en">/ Receipt successfully confirmed. Thank you.</em>'
+        :'Réception confirmée avec signalement de non-conformité. <em class="en">/ Receipt confirmed with non-conformity report.</em>';
+      suc.classList.add('show');
+      btn.style.display='none';
+      setTimeout(function(){
+        currentEnvoi.already_confirmed=true;
+        currentEnvoi.statut=conformeVal?'Reçu':'Problème';
+        currentEnvoi.confirm_conforme=conformeVal;
+        currentEnvoi.confirm_nc_types=ncTypes;
+        currentEnvoi.confirm_commentaire=comment;
+        currentEnvoi.confirm_recu_par=par;
+        currentEnvoi.ts_confirm=new Date(dt).toISOString();
+        currentEnvoi.confirm_method='online';
+        renderAlreadyConfirmed(currentEnvoi);
+      },2200);
+    }catch(e2){
+      err.innerHTML='Erreur réseau. Vérifiez votre connexion et réessayez. / Network error. Check your connection and try again.';
+      err.classList.add('show');btn.disabled=false;btn.textContent='Confirmer la réception / Confirm Receipt';
+    }
+  };
+
+  function renderNotFound(msg){
+    document.getElementById('main').innerHTML='<div class="card"><div class="not-found">'
+      +'<h2>Lien invalide / Invalid Link</h2><p>'+msg+'</p></div></div>';
+  }
+
+  init().then(function(){
+    var ld=document.getElementById('loading');if(ld)ld.style.display='none';
+  }).catch(function(){});
+})();
+</script>
+</body>
+</html>
