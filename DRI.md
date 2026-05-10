@@ -35,7 +35,7 @@ L'application est accessible par navigateur web (Chrome, Firefox, Edge, Safari),
 |---|---|---|
 | **Technicien** | Créer et réceptionner des envois de son labo | Technicien de laboratoire |
 | **Responsable** | Modifier ou annuler tout envoi de son labo | Responsable des envois du laboratoire |
-| **Superviseur grappe** | Accès à tous les labos, historique complet, KPI | Coordinateur réseau / ́Équipe qualité|
+| **Superviseur grappe** | Accès à tous les labos, historique complet, KPI | Coordinateur réseau / Équipe qualité |
 | **Administrateur** | Configuration complète, gestion des utilisateurs | TI ou responsable OPTILAB |
 
 ### 1.2 Fonctionnalités principales
@@ -92,7 +92,7 @@ Les données enregistrées sont exclusivement opérationnelles :
 | Utilisateurs | Nom d'employé, numéro d'employé, rôle, labo | Ressources humaines |
 | Audit | Qui a créé/modifié quoi, quand | Traçabilité interne |
 
-> L'application traite des **numéros de liste de repérage SILP** (numéros générée par SoftLabMic au moment de la mise en transit), pas des numéros de dossiers patients. La corrélation avec des données de santé requiert l'accès à SoftLabMic.
+> L'application traite des **numéros de liste de repérage SILP** (numéros générés par SoftLabMic au moment de la mise en transit), pas des numéros de dossiers patients. La corrélation avec des données de santé requiert l'accès à SoftLabMic.
 
 ### 1.4 Flux d'une journée type
 
