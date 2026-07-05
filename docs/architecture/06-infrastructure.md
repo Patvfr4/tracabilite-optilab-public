@@ -6,10 +6,9 @@
 | Champ | Valeur |
 |---|---|
 | **Projet** | OPTILAB Traçabilité inter-laboratoires |
-| **Date** | 2026-05-09 |
+| **Date** | 2026-05-09 — révisé le 2026-07-04 |
 | **Statut** | Soumis pour approbation |
 | **Préparé par** | Équipe OPTILAB |
-| **Destinataire** | DRI — CISSS du Bas-Saint-Laurent |
 
 ---
 
@@ -36,7 +35,7 @@ L'application est accessible par navigateur web (Chrome, Firefox, Edge, Safari),
 | **Technicien** | Créer et réceptionner des envois de son labo | Technicien de laboratoire |
 | **Responsable** | Modifier ou annuler tout envoi de son labo | Responsable des envois du laboratoire |
 | **Superviseur grappe** | Accès à tous les labos, historique complet, KPI | Coordinateur réseau / Équipe qualité |
-| **Administrateur** | Configuration complète, gestion des utilisateurs | TI ou responsable OPTILAB |
+| **Administrateur** | Configuration complète, gestion des utilisateurs | Équipe projet OPTILAB / responsable OPTILAB |
 
 ### 1.2 Fonctionnalités principales
 
@@ -137,7 +136,7 @@ L'application repose sur **quatre composants cloud**, tous gérés en mode servi
                                            ▼
                           ┌──────────────────────────────────┐
                           │  Service courriel (Resend        │
-                          │  ou SMTP interne CISSS)          │
+                          │  ou SMTP institutionnel)         │
                           │  Envoi des alertes aux labos     │
                           └──────────────────────────────────┘
 ```
@@ -150,13 +149,13 @@ Il n'y a **pas de serveur applicatif traditionnel** à maintenir. Le frontend es
 - Base de données → service courriel : HTTPS (port 443) — uniquement lors de l'envoi de notifications
 - Aucun port non standard, aucun VPN requis pour les utilisateurs finaux
 
-**Note sur les notifications :** Le service de courriel est le **seul composant optionnel**. Les laboratoires qui n'activent pas les notifications par courriel n'utilisent pas ce service. Il peut être remplacé par un serveur SMTP interne du CISSS pour garder les flux courriel sur l'infrastructure institutionnelle.
+**Note sur les notifications :** Le service de courriel est le **seul composant optionnel**. Les laboratoires qui n'activent pas les notifications par courriel n'utilisent pas ce service. Il peut être remplacé par un serveur SMTP institutionnel pour garder les flux courriel en interne.
 
 ---
 
 ## 3. Options d'infrastructure
 
-Trois options sont présentées. Elles correspondent à différents niveaux d'implication de l'équipe TI et à différents profils de risque et de coût.
+Deux options d'hébergement managé sont présentées (A et B). Une section dédiée détaille ensuite, à titre d'analyse, les modifications qu'impliquerait un hébergement **100 % VPS auto-géré** — nettement plus lourd, en particulier pour les fonctions serveur (Edge Functions).
 
 ---
 
@@ -192,64 +191,20 @@ Les deux fournisseurs proposent une **région Canada (Toronto / Canada Central)*
 | Résidence Canada | Région Canada disponible — données stockées à Toronto |
 | Certifications fournisseur | Supabase : SOC 2 Type II, ISO 27001 |
 | Backup automatique | Daily backup + PITR (Plan Pro) |
-| Notifications flexibles | Resend (cloud) ou SMTP CISSS interne — au choix |
+| Notifications flexibles | Resend (cloud) ou SMTP institutionnel — au choix |
 
 **Inconvénients**
 
 | ⚠️ Inconvénient | Détail |
 |---|---|
 | Dépendance fournisseurs | L'application dépend de Supabase, Cloudflare et Resend (pour les notifications) |
-| Données courriel hors Canada | Resend est basé aux États-Unis — logs des courriels sur serveurs US. Contenu : adresse destinataire + description de l'incident. Remplaçable par SMTP CISSS interne si requis. |
+| Données courriel hors Canada | Resend est basé aux États-Unis — logs des courriels sur serveurs US. Contenu : adresse destinataire + description de l'incident. Remplaçable par un SMTP institutionnel si requis. |
 | Coût de sortie | Migration vers une autre infrastructure requiert un effort technique |
 | Connaissance spécifique | Supabase est relativement récent — expertise moins répandue que AWS/Azure |
 
 ---
 
-### Option B — Supabase auto-hébergé sur infrastructure CISSS *(self-hosted)*
-
-**Description**
-Supabase est une plateforme open source. Elle peut être déployée sur des serveurs internes du CISSS via Docker Compose. Les données restent sur les serveurs du CISSS (sur site ou dans un centre de données institutionnel québécois).
-
-**Prérequis matériels estimés**
-
-| Composant | Minimum | Recommandé |
-|---|---|---|
-| Serveur (VM ou physique) | 4 vCPU / 8 GB RAM / 100 GB SSD | 8 vCPU / 16 GB RAM / 500 GB SSD |
-| Système d'exploitation | Ubuntu 22.04 LTS | Même |
-| Conteneurs | Docker Engine + Docker Compose | Même + orchestrateur (optionnel) |
-| Réseau | 100 Mbps | 1 Gbps |
-| Sauvegarde | Stockage objet interne | Réplication géographique |
-
-**Coûts estimés**
-
-| Élément | Estimation annuelle |
-|---|---|
-| Licences logicielles | 0 $ (open source) |
-| Infrastructure serveur | Selon inventaire CISSS — à évaluer |
-| Maintenance TI | 5–10 jours/an (mises à jour, monitoring, interventions) |
-| **Total** | **Variable — dominé par le coût RH interne** |
-
-**Avantages**
-
-| ✅ Avantage | Détail |
-|---|---|
-| Souveraineté totale | Données sur les serveurs du CISSS — aucune donnée sortant de l'établissement |
-| Pas de coût fournisseur externe | Aucune facturation mensuelle Supabase ou Cloudflare |
-| Contrôle complet | L'équipe TI gère l'ensemble de la pile |
-
-**Inconvénients**
-
-| ⚠️ Inconvénient | Détail |
-|---|---|
-| Charge opérationnelle élevée | Mises à jour, sauvegardes, monitoring, haute disponibilité : responsabilité TI |
-| Expertise requise | Docker, PostgreSQL, Linux |
-| Délai de déploiement | Plusieurs semaines pour provisionner et configurer |
-| Coût réel souvent sous-estimé | Le coût humain (heures TI) dépasse rapidement le coût du cloud |
-| Mises à jour complexes | Migrations Supabase à appliquer manuellement à chaque version |
-
----
-
-### Option C — Microsoft Azure Canada *(cloud souverain)*
+### Option B — Microsoft Azure Canada *(cloud souverain)*
 
 **Description**
 L'application et sa base de données sont redéployées sur les services Microsoft Azure hébergés en région **Canada Central (Toronto)**. Cette option utilise les services Azure suivants :
@@ -290,22 +245,62 @@ L'application et sa base de données sont redéployées sur les services Microso
 
 ---
 
+### Hébergement 100 % VPS auto-géré — modifications nécessaires
+
+> Passer à un VPS entièrement auto-géré ne consiste **pas** à déplacer l'application telle quelle : il faut **reconstituer chaque service que Supabase Cloud fournit aujourd'hui clé en main**. Plusieurs composants — en particulier les **Edge Functions** et le temps réel — n'ont pas d'équivalent direct et demandent un travail d'adaptation. Cette liste recense les modifications à prévoir.
+
+**Pile à reconstituer (aujourd'hui fournie par Supabase Cloud) :**
+
+| Service Supabase | Rôle | Sur VPS — à mettre en place |
+|---|---|---|
+| PostgreSQL | Base de données | Installer PostgreSQL + extensions (`pg_cron`, `pg_net`, `pgcrypto`, `uuid-ossp`) ; appliquer `schema.sql` + migrations `001`→`045` |
+| GoTrue (Auth) | Authentification JWT, comptes, sessions | Déployer GoTrue **ou** remplacer (Keycloak, Auth.js…) — impacte `auth.uid()` / `auth.jwt()` sur lesquels repose la RLS |
+| PostgREST | API REST auto-générée consommée par `supabase-js` | Déployer PostgREST **ou** réécrire une couche API ; sans lui, les appels `.from()` / `.rpc()` du front cessent de fonctionner |
+| Realtime | Diffusion WebSocket des changements | Déployer le serveur Realtime **ou** remplacer (`LISTEN/NOTIFY` + passerelle WebSocket) — impacte `subscribeRT` |
+| Edge Functions (Deno) | 5 fonctions serveur | **Point le plus lourd — voir ci-dessous** |
+| Storage | Fichiers | Non utilisé par l'application — rien à migrer |
+
+**Edge Functions — le point critique :**
+
+- Les 5 fonctions (`auth-gate`, `manage-user`, `send-notifications`, `test-notification`, `set-secret`) tournent sur le **runtime Edge de Supabase** (Deno managé). Sur VPS, il n'existe pas d'équivalent direct : il faut les **héberger comme services Deno autonomes** (serveur HTTP Deno derrière un reverse proxy), avec gestion manuelle des variables d'environnement, du JWT, du CORS et de l'accès base (clé `service_role`).
+- `manage-user` s'appuie sur l'**API admin de GoTrue** pour créer des comptes → à réadapter selon la solution d'authentification retenue.
+- Le **cron** (`pg_cron` + `pg_net`) appelle `send-notifications` par HTTP ; `pg_net` n'étant pas standard, le remplacer par un cron système ou un `pg_cron` appelant un endpoint local.
+
+**Frontend et configuration :**
+
+- `public/js/config.js` mappe chaque domaine vers l'URL Supabase et la clé anon → **repointer** vers les nouveaux endpoints (Auth, PostgREST, Realtime, Edge Functions).
+- Remplacer **Cloudflare Pages** par un serveur web (Nginx / Caddy) servant `public/`, avec réimplémentation de `_headers` (CSP, cache) et `_redirects` (routage SPA + `/confirm`) en règles du serveur.
+
+**Infrastructure transverse (à la charge de l'exploitant) :**
+
+- **Reverse proxy + TLS** (Nginx / Caddy + Let's Encrypt) routant vers chaque service ; nom de domaine.
+- **Sauvegardes** : `pg_dump` planifié ou réplication (remplace le PITR managé).
+- **Supervision** : logs, disponibilité, alertes ; **mises à jour de sécurité** de l'OS et des composants.
+- **CI/CD** : remplacer le déploiement automatique sur `git push` de Cloudflare par un pipeline de déploiement vers le VPS.
+- **Captcha Turnstile** : reste un service Cloudflare (indépendant de l'hébergement) ; sa clé secrète, aujourd'hui dans la configuration Auth Supabase, est à reconfigurer côté solution d'authentification.
+
+**En résumé :** un hébergement 100 % VPS est réalisable mais constitue un **projet d'infrastructure à part entière** (plusieurs semaines) qui transfère toute la charge d'exploitation (mises à jour, sécurité, sauvegardes, haute disponibilité) à l'équipe qui opère le serveur. Il ne se justifie que si une **souveraineté totale des données** est exigée.
+
+---
+
 ## 4. Tableau comparatif
 
-| Critère | A — Supabase Cloud | B — Auto-hébergé | C — Azure Canada |
-|---|:---:|:---:|:---:|
-| **Résidence des données (Canada)** | ✅ Oui (région CA) | ✅ Oui (CISSS) | ✅ Oui (CA Central) |
-| **Délai de déploiement** | ✅ Semaines | ⚠️ Mois | ⚠️ Mois |
-| **Coût mensuel** | ✅ 0–35 CAD | ⚠️ Variable (RH) | ⚠️ ~130–160 CAD |
-| **Charge opérationnelle TI** | ✅ Minimale | ❌ Élevée | ⚠️ Modérée |
-| **Contrôle de l'infrastructure** | ⚠️ Partiel | ✅ Total | ⚠️ Partiel |
-| **SLA documenté** | ✅ 99,9 % | ⚠️ Selon infra CISSS | ✅ 99,99 % |
-| **Certifications sécurité** | ✅ SOC 2, ISO 27001 | N/A | ✅ SOC 2, ISO 27001 |
-| **Adaptabilité au code existant** | ✅ Aucune modification | ✅ Aucune modification | ❌ Re-développement |
-| **Open source / auditabilité** | ✅ Supabase est open source | ✅ Total | ⚠️ Partiel |
-| **Expertise requise** | ✅ Faible | ❌ Docker/Linux/PG | ⚠️ Azure |
-| **Données hors CISSS** | ⚠️ Oui (cloud tiers Canada) | ✅ Non | ⚠️ Oui (cloud Microsoft Canada) |
-| **Notifications courriel — résidence** | ⚠️ Resend (US) ou SMTP CISSS | ✅ SMTP CISSS interne | ✅ Azure Communication Services (CA) |
+| Critère | A — Supabase Cloud | B — Azure Canada |
+|---|:---:|:---:|
+| **Résidence des données (Canada)** | ✅ Oui (région CA) | ✅ Oui (CA Central) |
+| **Délai de déploiement** | ✅ Semaines | ⚠️ Mois |
+| **Coût mensuel** | ✅ 0–35 CAD | ⚠️ ~130–160 CAD |
+| **Charge opérationnelle** | ✅ Minimale | ⚠️ Modérée |
+| **Contrôle de l'infrastructure** | ⚠️ Partiel | ⚠️ Partiel |
+| **SLA documenté** | ✅ 99,9 % | ✅ 99,99 % |
+| **Certifications sécurité** | ✅ SOC 2, ISO 27001 | ✅ SOC 2, ISO 27001 |
+| **Adaptabilité au code existant** | ✅ Aucune modification | ❌ Re-développement |
+| **Open source / auditabilité** | ✅ Supabase est open source | ⚠️ Partiel |
+| **Expertise requise** | ✅ Faible | ⚠️ Azure |
+| **Résidence hors organisation** | ⚠️ Oui (cloud tiers Canada) | ⚠️ Oui (cloud Microsoft Canada) |
+| **Notifications courriel — résidence** | ⚠️ Resend (US) ou SMTP institutionnel | ✅ Azure Communication Services (CA) |
+
+> L'hébergement **100 % VPS auto-géré** (voir section 3) n'est pas comparé ici : ce n'est pas une offre managée clé en main mais un projet d'infrastructure. Se reporter à la liste des modifications à prévoir.
 
 ---
 
@@ -315,13 +310,13 @@ L'application et sa base de données sont redéployées sur les services Microso
 
 1. **Aucun développement supplémentaire** : l'application est déjà fonctionnelle sur cette plateforme.
 2. **Coût opérationnel minimal** : 0 $ (plan Free) à ~35 CAD/mois (Plan Pro Supabase). Le service courriel Resend est gratuit dans les volumes attendus.
-3. **Charge TI minimale** : les mises à jour de sécurité, la disponibilité et les sauvegardes sont gérées par le fournisseur.
+3. **Charge opérationnelle minimale** : les mises à jour de sécurité, la disponibilité et les sauvegardes sont gérées par le fournisseur.
 4. **Résidence des données au Canada** : en sélectionnant la région Canada de Supabase, les données restent sur le territoire canadien.
 5. **Certifications reconnues** : SOC 2 Type II et ISO 27001 attestent du niveau de sécurité du fournisseur.
 
-**Si la direction TI exige une souveraineté totale** (données exclusivement sur infrastructure CISSS), l'Option B est envisageable mais implique un investissement en ressources humaines et en infrastructure nettement plus important.
+**Si une souveraineté totale des données est exigée** (données exclusivement sur une infrastructure interne), un hébergement 100 % VPS auto-géré est envisageable, mais il implique un investissement nettement plus important en ressources humaines et en infrastructure — voir la liste des modifications à prévoir (section 3).
 
-**L'Option C (Azure)** n'est recommandée que si le CISSS dispose déjà d'un environnement Azure actif et d'équipes formées, et si des ententes cadres gouvernementales offrent des conditions tarifaires avantageuses.
+**L'Option B (Azure)** n'est recommandée que si l'organisation dispose déjà d'un environnement Azure actif et d'équipes formées, et si des ententes cadres gouvernementales offrent des conditions tarifaires avantageuses.
 
 ---
 
@@ -347,11 +342,11 @@ Avec l'Option A recommandée, la charge opérationnelle est faible mais non null
 
 | Accès | Détenu par | Utilité |
 |---|---|---|
-| Tableau de bord Supabase | TI + développeur principal | Administration DB, monitoring, logs |
-| Compte Cloudflare Pages | TI + développeur principal | Déploiements, domaines |
+| Tableau de bord Supabase | Équipe projet OPTILAB | Administration DB, monitoring, logs |
+| Compte Cloudflare Pages | Équipe projet OPTILAB | Déploiements, domaines |
 | Compte GitHub (dépôt source) | Développeur principal | Code source, backups DB |
-| Compte Resend (ou config SMTP) | TI + développeur principal | Envoi des notifications courriel, clé API |
-| Compte admin OPTILAB (in-app) | Responsable OPTILAB + TI | Gestion utilisateurs, configuration, adresses courriel par labo |
+| Compte Resend (ou config SMTP) | Équipe projet OPTILAB | Envoi des notifications courriel, clé API |
+| Compte admin OPTILAB (in-app) | Responsable OPTILAB | Gestion utilisateurs, configuration, adresses courriel par labo |
 
 > **Règle fondamentale** : ne jamais avoir un seul détenteur de ces accès. Chaque accès critique doit être partagé entre au moins deux personnes de l'organisation.
 
@@ -359,7 +354,7 @@ Avec l'Option A recommandée, la charge opérationnelle est faible mais non null
 
 Le code source de l'application est versionné dans GitHub. Chaque nouvelle version :
 1. Est testée sur un environnement de développement
-2. Passe par le plan de recette documenté ([RECETTE.md](RECETTE.md))
+2. Passe par le plan de recette documenté ([08-plan-de-recette.md](08-plan-de-recette.md))
 3. Est déployée sur Cloudflare Pages par un simple push GitHub (automatique)
 4. Nécessite l'application manuelle des migrations SQL dans le tableau de bord Supabase ou via CLI
 
@@ -369,13 +364,13 @@ Il n'y a **pas de temps d'arrêt planifié** lors des déploiements — les fich
 
 | Risque | Probabilité | Impact | Mitigation |
 |---|---|---|---|
-| Discontinuité du service Supabase | Faible | Moyen | SLA 99,9 % + sauvegarde quotidienne; plan de migration vers Option B documenté |
+| Discontinuité du service Supabase | Faible | Moyen | SLA 99,9 % + sauvegarde quotidienne; plan de migration documenté (Azure ou hébergement VPS auto-géré) |
 | Perte d'accès au tableau de bord | Faible | Élevé | Partager les accès entre ≥ 2 personnes, documenter les identifiants en coffre-fort |
 | Croissance du stockage DB | Moyen | Moyen | Cron de purge des archives > 1 an (à configurer avant déploiement production) |
-| Départ du développeur principal | Moyen | Élevé | Code documenté ([doc.md](doc.md), [fonctions.md](fonctions.md)); architecture simple sans dépendances complexes |
+| Départ du développeur principal | Moyen | Élevé | Code documenté ([01-architecture-application.md](01-architecture-application.md), [02-liste-des-fonctions.md](02-liste-des-fonctions.md)); architecture simple sans dépendances complexes |
 | Faille de sécurité Supabase | Très faible | Élevé | Supabase publie des avis de sécurité; la sécurité repose sur PostgreSQL RLS (couche indépendante) |
 | Non-livraison des notifications courriel | Faible | Faible | L'app continue de fonctionner normalement sans notifications; alerte visible dans l'historique Resend; les alertes visuelles dans l'app restent actives |
-| Données courriel hors Canada (Resend) | Faible | Faible | Les logs Resend contiennent le sujet et l'adresse destinataire (pas de données patient); remplaçable par SMTP CISSS interne si requis |
+| Données courriel hors Canada (Resend) | Faible | Faible | Les logs Resend contiennent le sujet et l'adresse destinataire (pas de données patient); remplaçable par un SMTP institutionnel si requis |
 | Mauvaise utilisation par un utilisateur | Moyen | Faible | Journal d'audit complet sur toutes les modifications; rôles et permissions granulaires |
 
 
@@ -389,7 +384,7 @@ Il n'y a **pas de temps d'arrêt planifié** lors des déploiements — les fich
 | 2. Déploiement pilote (2 à 3 laboratoires) | Développeur + OPTILAB | 2–4 semaines |
 | 3. Formation des utilisateurs pilotes | OPTILAB | En parallèle |
 | 4. Revue des résultats pilote et ajustements | Développeur + OPTILAB | 4 semaines après pilote |
-| 5. Déploiement réseau complet (16 laboratoires) | Développeur + TI + OPTILAB | À définir selon pilote |
+| 5. Déploiement réseau complet (16 laboratoires) | Développeur + Équipe projet OPTILAB | À définir selon pilote |
 
 ---
 
@@ -421,4 +416,4 @@ Il n'y a **pas de temps d'arrêt planifié** lors des déploiements — les fich
 - Politique de confidentialité : [resend.com/legal/privacy-policy](https://resend.com/legal/privacy-policy)
 - Données transitant : adresse courriel destinataire, sujet du message, corps du courriel (description de l'incident — aucune donnée patient)
 - Serveurs : États-Unis
-- **Alternative sans Resend** : configurer un serveur SMTP interne CISSS dans la configuration OPTILAB — les courriels restent alors entièrement sur l'infrastructure institutionnelle
+- **Alternative sans Resend** : configurer un serveur SMTP institutionnel dans la configuration OPTILAB — les courriels restent alors entièrement en interne

@@ -11,7 +11,7 @@ var _hgcTab = 'all';
 var _hgrTab = 'sent';
 
 // ── Mapping et chargement ─────────────────────────────────────────────────────
-export function _mapEnvoiHG(row){var dl=row.dest_lab||null;return{id:row.id,numero:row.numero,source:row.source,exp:row.exp_lab?row.exp_lab.name:'',dest:dl?dl.name:'',destLab:dl,expId:row.exp_labo_id,destId:row.dest_ext_lab_id,expLab:row.exp_lab||{},temp:row.temperature,transporteur:row.transporteur,tubes:row.nb_echantillons,numerosSilp:row.numeros_silp||[],statut:row.statut,notes:row.notes||'',creePar:row.cree_par_nom||'',creeParId:row.cree_par_id,typeSpecimen:row.type_specimen||'exempt',glaceSeche:row.glace_seche||false,confirmToken:row.confirm_token,confirmMethod:row.confirm_method,confirmConforme:row.confirm_conforme,confirmNcTypes:row.confirm_nc_types||[],confirmCommentaire:row.confirm_commentaire||'',confirmRecuPar:row.confirm_recu_par||'',tsConfirm:row.ts_confirm,tsEnvoi:row.ts_envoi};}
+export function _mapEnvoiHG(row){var dl=row.dest_lab||null;return{id:row.id,numero:row.numero,source:row.source,exp:row.exp_lab?row.exp_lab.name:'',dest:dl?dl.name:'',destLab:dl,expId:row.exp_labo_id,destId:row.dest_ext_lab_id,expLab:row.exp_lab||{},temp:row.temperature,transporteur:row.transporteur,tubes:row.nb_echantillons,numerosSilp:row.numeros_silp||[],statut:row.statut,notes:row.notes||'',creePar:row.cree_par_nom||'',creeParId:row.cree_par_id,typeSpecimen:row.type_specimen||'exempt',glaceSeche:row.glace_seche||false,horsCorridorChoisi:row.hors_corridor||false,codesIcr:row.codes_icr||[],confirmToken:row.confirm_token,confirmMethod:row.confirm_method,confirmConforme:row.confirm_conforme,confirmNcTypes:row.confirm_nc_types||[],confirmCommentaire:row.confirm_commentaire||'',confirmRecuPar:row.confirm_recu_par||'',tsConfirm:row.ts_confirm,tsEnvoi:row.ts_envoi};}
 export async function loadExtLabs(){try{var r=await state.sb.from('external_labs').select('id,name,parent_id,adresse,adresse2,ville,code_postal,province,pays,telephone,label_text,active').eq('active',true).order('name');if(!r.error)state.labsExternes=r.data||[];}catch(e){}}
 export async function loadEnvoisHG(){
   try{
@@ -175,6 +175,9 @@ function sHgsTemp(lbl,pc){
   var gs=document.getElementById('hgs-glace-section');
   if(gs){if(tCfg&&tCfg.ask_glace){gs.style.display='';var expLab=state.currentUser&&state.laboratoires.find(function(l){return l.id===state.activeLaboId;});var defRef=expLab&&expLab.default_refrigerant;if(defRef==='glace_seche'){state.hgRefrigerant=true;setHgsSGC(true);}else if(defRef==='sachet'){state.hgRefrigerant=false;setHgsSGC(false);}else{state.hgRefrigerant=null;}}else{gs.style.display='none';state.hgRefrigerant=false;}}
 }
+export function setHgsHorsCorridor(val){ state.hgHorsCorridor=val; }
+export function setHgeHorsCorridor(val){ state.hgEditHorsCorridor=val; }
+
 export function setHgsSGC(val){
   state.hgRefrigerant=val;var bO=document.getElementById('hgs-btn-glace-oui'),bN=document.getElementById('hgs-btn-glace-non');
   if(bO)bO.style.outline=val?'2px solid var(--brand-azure-deep)':'';if(bN)bN.style.outline=val?'':'2px solid var(--brand-azure-deep)';
@@ -192,13 +195,14 @@ export function resetHgSilpForm(){
   var ps=document.getElementById('hgs-parent');if(ps)ps.value='';var cw=document.getElementById('hgs-child-wrap');if(cw)cw.style.display='none';
   document.getElementById('hgs-ldest').value='';var da=document.getElementById('hgs-dest-addr');if(da)da.innerHTML='';
   document.getElementById('hgs-notes').value='';document.getElementById('hgs-trans').value='';document.getElementById('hgs-ntub').value='';
-  state.hgTemperature='';state.hgRefrigerant=false;state.hgListesSilp=[];renderHgsChips();
+  state.hgTemperature='';state.hgRefrigerant=false;state.hgHorsCorridor=false;state.hgListesSilp=[];renderHgsChips();var _hcCb=document.getElementById('hgs-hors-corridor-cb');if(_hcCb)_hcCb.checked=false;
   var gs=document.getElementById('hgs-glace-section');if(gs)gs.style.display='none';
   document.querySelectorAll('#hgs-tpills-c .tpill').forEach(function(el){el.className='tpill';});
   var ts=document.getElementById('hgs-tspec');if(ts)ts.value=state.CFG.bordereau.specTypes[0]&&state.CFG.bordereau.specTypes[0].id||'exempt';
   state.hgSansSilp=false;var cb=document.getElementById('hgs-no-silp-cb');if(cb)cb.checked=false;
   var w=document.getElementById('hgs-nlist-wrap'),warn=document.getElementById('hgs-no-silp-warn'),nw=document.getElementById('hgs-no-silp-num-wrap');
   if(w)w.style.display='';if(warn)warn.style.display='none';if(nw)nw.style.display='none';
+  if(window.resetEchantillonsHgDepart)window.resetEchantillonsHgDepart();
 }
 export async function saveEnvoiHgSilp(){
   var destId=document.getElementById('hgs-ldest').value,tr=document.getElementById('hgs-trans').value;
@@ -212,7 +216,7 @@ export async function saveEnvoiHgSilp(){
   var tubes=parseInt(document.getElementById('hgs-ntub').value)||null;
   var spec=document.getElementById('hgs-tspec')?document.getElementById('hgs-tspec').value:'exempt';
   var _hgStat=window.isBDEnabled&&window.isBDEnabled()?'En attente':'En transit';
-  var r=await sbCall(state.sb.rpc('create_envoi_hgrappe',{p_source:'silp',p_exp_labo_id:state.activeLaboId,p_dest_ext_lab_id:destId,p_temperature:state.hgTemperature,p_transporteur:tr,p_nb_echantillons:tubes,p_numeros_silp:state.hgListesSilp.slice(),p_notes:document.getElementById('hgs-notes').value,p_cree_par_id:state.currentUser.id,p_cree_par_nom:state.currentUser.nom,p_type_specimen:spec,p_glace_seche:state.hgRefrigerant===true,p_statut:_hgStat}),'hgs-serr');
+  var r=await sbCall(state.sb.rpc('create_envoi_hgrappe',{p_source:'silp',p_exp_labo_id:state.activeLaboId,p_dest_ext_lab_id:destId,p_temperature:state.hgTemperature,p_transporteur:tr,p_nb_echantillons:tubes,p_numeros_silp:state.hgListesSilp.slice(),p_notes:document.getElementById('hgs-notes').value,p_cree_par_id:state.currentUser.id,p_cree_par_nom:state.currentUser.nom,p_type_specimen:spec,p_glace_seche:state.hgRefrigerant===true,p_statut:_hgStat,p_hors_corridor:state.hgHorsCorridor===true}),'hgs-serr');
   if(r.error)return;
   var result=r.data,destLabObj=buildHgDestLabObj(destId),expLab=state.laboratoires.find(function(l){return l.id===state.activeLaboId;})||{};
   var destDispName=destLabObj?(destLabObj.parent?(destLabObj.parent.name+'\n'+destLabObj.name):(destLabObj.name||'—')):'—';
@@ -223,7 +227,8 @@ async function _doSaveEnvoiHgHsilp(){
   var destId=document.getElementById('hgs-ldest').value,tr=document.getElementById('hgs-trans').value;
   var tubes=parseInt(document.getElementById('hgs-ntub').value)||null;var spec=document.getElementById('hgs-tspec')?document.getElementById('hgs-tspec').value:'exempt';
   var _hgStat2=window.isBDEnabled&&window.isBDEnabled()?'En attente':'En transit';
-  var r=await sbCall(state.sb.rpc('create_envoi_hgrappe',{p_source:'hsilp',p_exp_labo_id:state.activeLaboId,p_dest_ext_lab_id:destId,p_temperature:state.hgTemperature,p_transporteur:tr,p_nb_echantillons:tubes,p_numeros_silp:[],p_notes:document.getElementById('hgs-notes').value,p_cree_par_id:state.currentUser.id,p_cree_par_nom:state.currentUser.nom,p_type_specimen:spec,p_glace_seche:state.hgRefrigerant===true,p_statut:_hgStat2}),'hgs-serr');
+  var _echHgDep=window.getEchantillonsHgDepart?window.getEchantillonsHgDepart():[];
+  var r=await sbCall(state.sb.rpc('create_envoi_hgrappe',{p_source:'hsilp',p_exp_labo_id:state.activeLaboId,p_dest_ext_lab_id:destId,p_temperature:state.hgTemperature,p_transporteur:tr,p_nb_echantillons:tubes,p_numeros_silp:[],p_notes:document.getElementById('hgs-notes').value,p_cree_par_id:state.currentUser.id,p_cree_par_nom:state.currentUser.nom,p_type_specimen:spec,p_glace_seche:state.hgRefrigerant===true,p_statut:_hgStat2,p_echantillons_depart:_echHgDep,p_hors_corridor:state.hgHorsCorridor===true}),'hgs-serr');
   if(r.error)return;
   var result=r.data,destLabObj=buildHgDestLabObj(destId),expLab=state.laboratoires.find(function(l){return l.id===state.activeLaboId;})||{};
   var destDispName=destLabObj?(destLabObj.parent?(destLabObj.parent.name+'\n'+destLabObj.name):(destLabObj.name||'—')):'—';
@@ -236,7 +241,7 @@ export function toggleHgsNoSilp(){
   if(cb&&cb.checked){cb.checked=false;window.showNoListModal(function(){cb.checked=true;state.hgSansSilp=true;_applyHgsNoSilpUi(true);fetchHgHsilpPreviewNum();});}
   else{state.hgSansSilp=false;_applyHgsNoSilpUi(false);}
 }
-function _applyHgsNoSilpUi(on){var wrap=document.getElementById('hgs-nlist-wrap'),warn=document.getElementById('hgs-no-silp-warn'),nw=document.getElementById('hgs-no-silp-num-wrap');if(wrap)wrap.style.display=on?'none':'';if(warn)warn.style.display=on?'':'none';if(nw)nw.style.display=on?'':'none';}
+function _applyHgsNoSilpUi(on){var wrap=document.getElementById('hgs-nlist-wrap'),warn=document.getElementById('hgs-no-silp-warn'),nw=document.getElementById('hgs-no-silp-num-wrap');if(wrap)wrap.style.display=on?'none':'';if(warn)warn.style.display=on?'':'none';if(nw)nw.style.display=on?'':'none';if(window.updateEchHgDepartSectionVisibility)window.updateEchHgDepartSectionVisibility();}
 
 // ── Modal succès HG ───────────────────────────────────────────────────────────
 export function showHGSuccessModal(num){
@@ -451,7 +456,7 @@ export async function saveHGFaxConfirm(){
 // ── Modification envoi HG ──────────────────────────────────────────────────────
 export function openEditHGEnvoi(id){
   var e=state.envoisHG.find(function(x){return x.id===id;});if(!e)return;
-  state.hgEditId=id;state.hgEditTemperature=e.temp;state.hgEditRefrigerant=e.glaceSeche||false;state.hgEditListesSilp=(e.numerosSilp||[]).slice();
+  state.hgEditId=id;state.hgEditTemperature=e.temp;state.hgEditRefrigerant=e.glaceSeche||false;state.hgEditHorsCorridor=e.horsCorridorChoisi||false;state.hgEditListesSilp=(e.numerosSilp||[]).slice();var _heCb=document.getElementById('hge-hors-corridor-cb');if(_heCb)_heCb.checked=state.hgEditHorsCorridor;
   document.getElementById('hge-num-ro').textContent=e.numero;document.getElementById('hge-exp-ro').textContent=e.exp;
   document.getElementById('hge-dest-ro').innerHTML=ligneDestHG(e);document.getElementById('hge-src-ro').textContent=e.source==='silp'?'SILP':'Hors SILP';
   document.getElementById('hge-err').style.display='none';
@@ -496,7 +501,9 @@ export async function saveEditHGEnvoi(){
   var tr=document.getElementById('hge-trans').value;if(!tr){notifier('hge-err','Veuillez sélectionner un transporteur.','e');return;}
   if(e.source==='silp'&&!state.hgEditListesSilp.length){notifier('hge-err','Veuillez ajouter au moins un numéro de liste de repérage.','e');return;}
   var tubes=parseInt(document.getElementById('hge-ntub').value)||null;var spec=document.getElementById('hge-tspec').value;var notes=document.getElementById('hge-notes').value;
-  var upd={temperature:state.hgEditTemperature,transporteur:tr,nb_echantillons:tubes,notes:notes,type_specimen:spec,glace_seche:state.hgEditRefrigerant===true};
+  var _hNewHorsCorridor=state.hgEditHorsCorridor===true;
+  var _hNewCodesIcr=[].concat(state.hgEditRefrigerant===true?['70008']:[]).concat(_hNewHorsCorridor?['70009']:[]);
+  var upd={temperature:state.hgEditTemperature,transporteur:tr,nb_echantillons:tubes,notes:notes,type_specimen:spec,glace_seche:state.hgEditRefrigerant===true,hors_corridor:_hNewHorsCorridor,codes_icr:_hNewCodesIcr};
   if(e.source==='silp')upd.numeros_silp=state.hgEditListesSilp.slice();
   var r=await sbCall(state.sb.from('envois_hgrappe').update(upd).eq('id',state.hgEditId),'hge-err');
   if(r.error)return;
@@ -512,7 +519,7 @@ export async function saveEditHGEnvoi(){
 
 // ── Config HG ─────────────────────────────────────────────────────────────────
 export function renderCfgHgrappe(){
-  if(!estAdmin())return;renderHgrappeLabsToggle();renderExtLabsList();renderHGAlarmsCfg();renderCfgHgrappeConfirmByNumero();renderCfgHgrappeFormat();
+  if(!estAdmin())return;renderHgrappeLabsToggle();renderExtLabsList();renderHGAlarmsCfg();renderCfgHgrappeConfirmByNumero();
 }
 export function renderCfgHgrappeConfirmByNumero(){var el=document.getElementById('cfg-hg-confirm-by-numero');if(el)el.checked=state.CFG.hgrappeConfirmByNumero!==false;}
 export async function saveHgrappeConfirmByNumero(){var v=document.getElementById('cfg-hg-confirm-by-numero').checked;var ok=await saveGrappeCfg('hgrappe_confirm_by_numero',v);if(ok){state.CFG.hgrappeConfirmByNumero=v;notifier('cfgsuc','Paramètre mis à jour.','s');}}
@@ -542,12 +549,6 @@ export async function saveHgrappeLabs(){
   if(err){notifier('cfgerr','Erreur : '+err.error.message,'e');return;}
   notifier('cfgsuc','Activation Hors-grappe mise à jour.','s');
   var canHG=isHGEnabled();var sw=document.getElementById('mode-sw');if(sw)sw.classList.toggle('gone',!canHG);
-}
-export function renderCfgHgrappeFormat(){var el=document.getElementById('hgrappe-fmt-list');if(!el)return;el.innerHTML=window._buildFmtCards(state.CFG.hgrappeFormat||'bordereau','hgrappe-fmt','saveHgrappeFormat');}
-export async function saveHgrappeFormat(id){
-  state.CFG.hgrappeFormat=id;var hint=document.getElementById('hgrappe-fmt-hint');
-  if(hint){var f=state.CFG.bordereau.formats.find(function(x){return x.id===id;})||{};hint.textContent=f.desc||'';}
-  if(await saveCfg('hgrappe_bordereau_format',id))notifier('cfgsuc','Format Hors-grappe mis à jour.','s');
 }
 
 // ── Laboratoires externes ─────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 # Plan de recette — Traçabilité OPTILAB
 
-> Dernière mise à jour : 2026-05-09 — BETA 1.9.6
+> Dernière mise à jour : 2026-07-04 — BETA 1.10.0
 > Stack : HTML/CSS/JS vanilla · Supabase (PostgreSQL + Auth + Realtime) · Cloudflare Pages
 
 ---
@@ -493,10 +493,11 @@
 -- Vérifier toutes les tables présentes
 SELECT table_name FROM information_schema.tables
 WHERE table_schema = 'public' ORDER BY table_name;
--- Attendu : app_config, bons_depart, bons_depart_envois, bons_depart_sections,
+-- Attendu (BETA 1.10.0) : app_config, bons_depart, bons_depart_envois, bons_depart_sections,
 --           envois, envois_audit, envois_hgrappe, external_labs, grappes, grappe_config,
---           laboratories, module_config, notification_config, notification_emails,
---           notification_log, notification_queue, profiles, user_lab_memberships
+--           hg_confirm_attempts, icr_codes, laboratories, login_attempts, module_config,
+--           notification_config, notification_emails, notification_log, notification_queue,
+--           profiles, user_lab_memberships
 
 -- Migration 021 — module_config
 SELECT is_module_active('bons_depart', '<labo_id>');
@@ -537,7 +538,7 @@ SELECT tgname FROM pg_trigger WHERE tgname LIKE '%hgrappe%';
 
 ## 32. Capacité Supabase
 
-> Analyse complète dans [CAPACITE_SUPABASE.md](CAPACITE_SUPABASE.md) — mis à jour le 2026-05-09 (BETA 1.9.6).
+> Analyse complète dans [07-capacite-supabase.md](07-capacite-supabase.md) — mis à jour le 2026-05-09 (BETA 1.9.6).
 
 **Résumé des conclusions :**
 
@@ -553,7 +554,62 @@ SELECT tgname FROM pg_trigger WHERE tgname LIKE '%hgrappe%';
 
 ---
 
-## 33. Compatibilité navigateurs
+## 33. Gestion des échantillons (module BETA 1.10.0)
+
+> Module activable par laboratoire (`Configuration > Modules > Gestion des échantillons`).
+
+- [ ] Activation / désactivation du module par labo depuis la configuration
+- [ ] **Départ intra sans SILP (HSILP)** : la section de scan des échantillons n'apparaît que si le module est actif et l'envoi sans liste SILP
+- [ ] Ajout d'un échantillon par scan ou saisie → chip créé
+- [ ] Suppression d'un chip échantillon
+- [ ] Anti-doublon : un même code scanné deux fois n'est pas ajouté en double
+- [ ] **Départ hors-grappe sans SILP** : même comportement de scan
+- [ ] Les échantillons du départ sont bien enregistrés sur l'envoi (`echantillons_depart`)
+- [ ] **Réception** : champ « Nombre reçu » + scan de vérification disponibles
+- [ ] Réception conforme (tous les échantillons attendus scannés) → aucune non-conformité générée
+- [ ] Écart (échantillon manquant ou inattendu, ou nombre reçu ≠ attendu) → **génération automatique d'une non-conformité**
+- [ ] **Édition d'un envoi intra** : chips d'échantillons modifiables dans le modal
+- [ ] Module désactivé → aucune section « échantillons » visible au départ, en réception ni en édition
+
+---
+
+## 34. Codes ICR / valeurs pondérées (BETA 1.10.0)
+
+- [ ] Référentiel `icr_codes` accessible et gérable par un administrateur (au moins `70008` Glace sèche, `70009` Transport hors corridor)
+- [ ] **Formulaire intra** : case « Transport hors corridor » présente ; cochée → code `70009` attribué à l'envoi
+- [ ] **Formulaire hors-grappe** : même case, même attribution
+- [ ] Envoi avec glace sèche → code `70008` attribué automatiquement (vérifier la règle de calcul réelle)
+- [ ] Colonnes `hors_corridor` / `codes_icr` correctement renseignées en base
+- [ ] **KPI — section Codes ICR** : volumes pondérés par code sur la période sélectionnée
+- [ ] État vide affiché si aucun envoi avec code ICR sur la période
+- [ ] Cohérence des totaux ICR avec les envois de la période
+
+---
+
+## 35. Parcours de formation guidé (BETA 1.10.0)
+
+- [ ] **Premier login** d'un utilisateur → le tour démarre automatiquement (~1 s après connexion)
+- [ ] Navigation « Précédent » / « Suivant », compteur d'étapes et points de progression corrects
+- [ ] Bouton « Passer » quitte le tour
+- [ ] **Étapes adaptées au rôle** : un technicien voit moins d'étapes qu'un superviseur grappe / admin (modules non accessibles masqués)
+- [ ] Surbrillance de l'élément ciblé et bulle positionnée correctement (y compris previews étiquette et F-G-74)
+- [ ] Tour terminé ou passé → **ne se relance plus** au login suivant (progression dans `profiles.tour_progress`)
+- [ ] Relance manuelle via **Aide → À propos → « Relancer le tour guidé »**
+- [ ] Comptes de démonstration (`is_test`) : le tour se relance à chaque connexion
+- [ ] Le tour fonctionne aussi bien en mode Intra-grappe qu'en bascule Hors-grappe
+
+---
+
+## 36. Journal des versions (À propos)
+
+- [ ] `Aide → À propos → Journal des versions` charge et affiche le contenu de `CHANGELOG.md`
+- [ ] Chaque version est un bloc repliable (la plus récente ouverte par défaut)
+- [ ] Rendu correct (titres, listes, `code`, gras) et défilement dans l'encadré
+- [ ] Version affichée (sidebar + À propos) cohérente avec la dernière entrée du journal
+
+---
+
+## 37. Compatibilité navigateurs
 
 - [ ] Chrome / Chromium (dernière version)
 - [ ] Firefox (dernière version)

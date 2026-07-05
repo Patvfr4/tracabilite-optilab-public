@@ -1,6 +1,6 @@
 // Edge Function : send-notifications
 // Déclencheur HTTP — cron Supabase (pg_net) ou appel manuel
-// Sécurisé par validation JWT Supabase (gateway) — déployer SANS --no-verify-jwt
+// Déclencheur : cron Supabase (type "Supabase Edge Function") — JWT vérifié automatiquement.
 //
 // Étapes :
 //   1. Vérifie la config (activé ?)
@@ -13,6 +13,22 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+
+// ── Secrets — lus depuis Supabase Vault (saisis dans l'UI admin) ─────────────
+// Priorité : 1) notification_config (migration 028)  2) Vault  3) Deno.env
+function loadSecretFromCfg(cfg: Record<string, string>, name: string): string {
+  const colMap: Record<string, string> = { RESEND_API_KEY: 'resend_api_key', SMTP_PASS: 'smtp_pass' };
+  return cfg[colMap[name] ?? ''] || '';
+}
+async function loadSecret(sb: ReturnType<typeof createClient>, name: string, cfg: Record<string, string> = {}): Promise<string> {
+  const fromCfg = loadSecretFromCfg(cfg, name);
+  if (fromCfg) return fromCfg;
+  try {
+    const { data, error } = await sb.rpc('get_app_secret', { p_name: name });
+    if (!error && data) return String(data);
+  } catch (_) { /* fallback below */ }
+  return Deno.env.get(name) || '';
+}
 
 const DEPT_LABELS: Record<string, string> = {
   BIOCHIMIE:     'Biochimie',
@@ -31,8 +47,7 @@ const TYPE_LABELS: Record<string, string> = {
 interface NotifConfig {
   enabled: boolean; enabled_nc: boolean; enabled_lost: boolean; enabled_alarm: boolean;
   provider: 'resend' | 'smtp';
-  resend_api_key: string; smtp_host: string; smtp_port: number;
-  smtp_user: string; smtp_pass: string; smtp_from: string;
+  smtp_host: string; smtp_port: number; smtp_user: string; smtp_from: string;
   batch_hour: number; fallback_email: string;
 }
 
@@ -212,21 +227,29 @@ function buildEmailHtml(
 
 // ── Envoi email via Resend ou SMTP ────────────────────────────────────────────
 
-async function sendEmail(cfg: NotifConfig, to: string, subject: string, text: string, html: string): Promise<void> {
+async function sendEmail(
+  sb: ReturnType<typeof createClient>,
+  cfg: NotifConfig,
+  to: string, subject: string, text: string, html: string
+): Promise<void> {
   if (cfg.provider === 'resend') {
+    const key = await loadSecret(sb, 'RESEND_API_KEY', cfg);
+    if (!key) throw new Error('RESEND_API_KEY non configurée (Configuration > Notifications dans l\'UI admin).');
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${cfg.resend_api_key}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: cfg.smtp_from || 'OPTILAB <noreply@optilab.local>', to: [to], subject, text, html }),
     });
     if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`);
   } else {
+    const pass = await loadSecret(sb, 'SMTP_PASS', cfg);
+    if (!pass) throw new Error('SMTP_PASS non configuré (Configuration > Notifications dans l\'UI admin).');
     const client = new SMTPClient({
       connection: {
         hostname: cfg.smtp_host,
         port: cfg.smtp_port || 587,
         tls: cfg.smtp_port === 465,
-        auth: { username: cfg.smtp_user, password: cfg.smtp_pass },
+        auth: { username: cfg.smtp_user, password: pass },
       },
     });
     await client.send({ from: cfg.smtp_from || cfg.smtp_user, to, subject, content: text, html });
@@ -328,7 +351,7 @@ Deno.serve(async (_req: Request) => {
     let status = 'sent';
     let errorMsg: string | null = null;
     try {
-      await sendEmail(notifCfg, email, subject, body, html);
+      await sendEmail(sb, notifCfg, email, subject, body, html);
       for (const id of grp.itemMap.keys()) sentItemIds.add(id);
     } catch (e: unknown) {
       status = 'error';

@@ -6,6 +6,7 @@
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault CASCADE;
 
 -- ============================================================
 -- SÉQUENCES
@@ -234,6 +235,8 @@ CREATE TABLE IF NOT EXISTS bons_depart_envois (
 );
 
 -- Configuration des notifications par courriel
+-- Secrets (RESEND_API_KEY, SMTP_PASS) en Supabase Vault, accessibles via
+-- les RPC set_app_secret / get_app_secret_status / get_app_secret (service_role).
 CREATE TABLE IF NOT EXISTS notification_config (
   id             SERIAL      PRIMARY KEY,
   enabled        BOOLEAN     NOT NULL DEFAULT FALSE,
@@ -241,11 +244,9 @@ CREATE TABLE IF NOT EXISTS notification_config (
   enabled_lost   BOOLEAN     NOT NULL DEFAULT TRUE,
   enabled_alarm  BOOLEAN     NOT NULL DEFAULT TRUE,
   provider       TEXT        NOT NULL DEFAULT 'resend' CHECK (provider IN ('resend','smtp')),
-  resend_api_key TEXT        NOT NULL DEFAULT '',
   smtp_host      TEXT        NOT NULL DEFAULT '',
   smtp_port      INTEGER     NOT NULL DEFAULT 587,
   smtp_user      TEXT        NOT NULL DEFAULT '',
-  smtp_pass      TEXT        NOT NULL DEFAULT '',
   smtp_from      TEXT        NOT NULL DEFAULT '',
   batch_hour     INTEGER     NOT NULL DEFAULT 18 CHECK (batch_hour >= 0 AND batch_hour <= 23),
   fallback_email TEXT        NOT NULL DEFAULT '',
@@ -292,6 +293,32 @@ CREATE TABLE IF NOT EXISTS notification_log (
   error_message TEXT                 DEFAULT NULL,
   sent_at       TIMESTAMPTZ          DEFAULT NOW(),
   queue_ids     UUID[]      NOT NULL DEFAULT '{}'
+);
+
+-- Tentatives échouées de confirmation HG par numéro (anti brute-force)
+CREATE TABLE IF NOT EXISTS hg_confirm_attempts (
+  id            UUID         DEFAULT uuid_generate_v4() PRIMARY KEY,
+  numero        TEXT         NOT NULL,
+  attempted_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  reason        TEXT         NOT NULL CHECK (reason IN ('wrong_code','not_found'))
+);
+
+-- Tentatives de connexion (anti brute-force, alimentée par edge function auth-gate)
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id            UUID         DEFAULT uuid_generate_v4() PRIMARY KEY,
+  employee_id   TEXT         NOT NULL,
+  attempted_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  success       BOOLEAN      NOT NULL DEFAULT FALSE
+);
+
+-- Audit des changements de secrets applicatifs (Vault)
+CREATE TABLE IF NOT EXISTS app_secrets_audit (
+  id             UUID         DEFAULT uuid_generate_v4() PRIMARY KEY,
+  secret_name    TEXT         NOT NULL,
+  action         TEXT         NOT NULL CHECK (action IN ('CREATE','UPDATE','DELETE')),
+  changed_by_id  UUID         REFERENCES auth.users(id),
+  changed_by_nom TEXT         NOT NULL DEFAULT '',
+  changed_at     TIMESTAMPTZ  DEFAULT NOW()
 );
 
 -- ============================================================
@@ -522,22 +549,50 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
--- Code de vérification = 6 premiers caractères du token UUID sans tirets, majuscules
+-- Code de vérification = 6 premiers caractères du token UUID sans tirets, majuscules.
+-- Rate-limit anti brute-force : 5 échecs / 15 min sur le même numéro → 'too_many_attempts'.
 CREATE OR REPLACE FUNCTION get_envoi_hgrappe_by_numero(p_numero TEXT, p_verify_code TEXT)
-RETURNS JSON AS $$
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
 DECLARE
   v_e                envois_hgrappe%ROWTYPE;
   v_exp_name         TEXT;
   v_dest_name        TEXT;
   v_dest_parent_name TEXT;
   v_expected         TEXT;
+  v_numero_clean     TEXT;
+  v_fail_count       INTEGER;
+  v_retry_after      INTEGER;
+  v_window_start     TIMESTAMPTZ;
 BEGIN
-  SELECT * INTO v_e FROM envois_hgrappe WHERE numero = upper(trim(p_numero));
-  IF NOT FOUND THEN RETURN json_build_object('error', 'not_found'); END IF;
+  v_numero_clean := UPPER(TRIM(COALESCE(p_numero, '')));
+  IF v_numero_clean = '' THEN RETURN json_build_object('error', 'not_found'); END IF;
+
+  v_window_start := NOW() - INTERVAL '15 minutes';
+  SELECT COUNT(*) INTO v_fail_count FROM hg_confirm_attempts
+    WHERE numero = v_numero_clean AND attempted_at > v_window_start;
+
+  IF v_fail_count >= 5 THEN
+    SELECT EXTRACT(EPOCH FROM (MIN(attempted_at) + INTERVAL '15 minutes' - NOW()))::INTEGER
+      INTO v_retry_after FROM hg_confirm_attempts
+      WHERE numero = v_numero_clean AND attempted_at > v_window_start;
+    RETURN json_build_object('error', 'too_many_attempts', 'retry_after_seconds', GREATEST(v_retry_after, 1));
+  END IF;
+
+  SELECT * INTO v_e FROM envois_hgrappe WHERE numero = v_numero_clean;
+  IF NOT FOUND THEN
+    INSERT INTO hg_confirm_attempts (numero, reason) VALUES (v_numero_clean, 'not_found');
+    RETURN json_build_object('error', 'not_found');
+  END IF;
+
   v_expected := upper(substr(replace(v_e.confirm_token::text, '-', ''), 1, 6));
-  IF upper(trim(p_verify_code)) != v_expected THEN
+  IF upper(trim(COALESCE(p_verify_code, ''))) != v_expected THEN
+    INSERT INTO hg_confirm_attempts (numero, reason) VALUES (v_numero_clean, 'wrong_code');
     RETURN json_build_object('error', 'wrong_code');
   END IF;
+
+  -- Auto-purge opportuniste
+  DELETE FROM hg_confirm_attempts WHERE attempted_at < NOW() - INTERVAL '24 hours';
+
   SELECT name INTO v_exp_name FROM laboratories WHERE id = v_e.exp_labo_id;
   SELECT el.name, el2.name INTO v_dest_name, v_dest_parent_name
     FROM external_labs el LEFT JOIN external_labs el2 ON el2.id = el.parent_id
@@ -553,7 +608,7 @@ BEGIN
     'confirm_recu_par', v_e.confirm_recu_par, 'confirm_method', v_e.confirm_method
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$;
 
 CREATE OR REPLACE FUNCTION get_hg_confirm_cfg()
 RETURNS JSON AS $$
@@ -975,6 +1030,131 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- ============================================================
+-- FONCTIONS — Secrets applicatifs (Vault)
+-- ============================================================
+-- Stockage chiffré des secrets via Supabase Vault (pgsodium).
+-- Saisis/rotés depuis l'UI admin via set_app_secret(), jamais retournés en clair.
+-- Lus uniquement par les edge functions (service_role) via get_app_secret().
+
+CREATE OR REPLACE FUNCTION _allowed_secret_names()
+RETURNS TEXT[] LANGUAGE sql IMMUTABLE AS $$
+  SELECT ARRAY['RESEND_API_KEY','SMTP_PASS','TURNSTILE_SECRET_KEY'];
+$$;
+
+CREATE OR REPLACE FUNCTION set_app_secret(p_name TEXT, p_value TEXT)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, vault AS $$
+DECLARE
+  v_existing_id UUID; v_action TEXT; v_par_nom TEXT;
+BEGIN
+  IF current_role_name() != 'admin' THEN
+    RAISE EXCEPTION 'Accès refusé : administrateur uniquement.';
+  END IF;
+  IF p_name IS NULL OR TRIM(p_name) = '' THEN RAISE EXCEPTION 'Nom de secret requis.'; END IF;
+  IF p_value IS NULL OR LENGTH(p_value) = 0 THEN RAISE EXCEPTION 'Valeur de secret requise.'; END IF;
+  IF NOT (p_name = ANY(_allowed_secret_names())) THEN
+    RAISE EXCEPTION 'Nom de secret non autorisé : %', p_name;
+  END IF;
+  SELECT id INTO v_existing_id FROM vault.secrets WHERE name = p_name;
+  IF v_existing_id IS NOT NULL THEN
+    UPDATE vault.secrets SET secret = p_value WHERE id = v_existing_id;
+    v_action := 'UPDATE';
+  ELSE
+    PERFORM vault.create_secret(p_value, p_name, '');
+    v_action := 'CREATE';
+  END IF;
+  SELECT nom INTO v_par_nom FROM profiles WHERE id = auth.uid();
+  INSERT INTO app_secrets_audit (secret_name, action, changed_by_id, changed_by_nom)
+  VALUES (p_name, v_action, auth.uid(), COALESCE(v_par_nom, ''));
+  RETURN json_build_object('ok', true, 'name', p_name, 'action', v_action);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_app_secret_status(p_name TEXT)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, vault AS $$
+DECLARE
+  v_updated TIMESTAMPTZ; v_exists BOOLEAN;
+  v_action TEXT; v_par_nom TEXT; v_par_at TIMESTAMPTZ;
+BEGIN
+  IF current_role_name() != 'admin' THEN
+    RAISE EXCEPTION 'Accès refusé : administrateur uniquement.';
+  END IF;
+  SELECT (id IS NOT NULL), updated_at INTO v_exists, v_updated
+  FROM vault.secrets WHERE name = p_name;
+  v_exists := COALESCE(v_exists, FALSE);
+  SELECT action, changed_by_nom, changed_at INTO v_action, v_par_nom, v_par_at
+  FROM app_secrets_audit WHERE secret_name = p_name ORDER BY changed_at DESC LIMIT 1;
+  RETURN json_build_object(
+    'name', p_name, 'configured', v_exists, 'updated_at', v_updated,
+    'last_action', v_action, 'last_changed_by', v_par_nom, 'last_changed_at', v_par_at
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION list_app_secrets_status()
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, vault AS $$
+DECLARE v_result JSON;
+BEGIN
+  IF current_role_name() != 'admin' THEN
+    RAISE EXCEPTION 'Accès refusé : administrateur uniquement.';
+  END IF;
+  SELECT json_object_agg(k.name, json_build_object(
+    'configured', s.id IS NOT NULL, 'updated_at', s.updated_at,
+    'last_changed_by', a.changed_by_nom, 'last_changed_at', a.changed_at, 'last_action', a.action
+  )) INTO v_result
+  FROM (SELECT unnest(_allowed_secret_names()) AS name) k
+  LEFT JOIN vault.secrets s ON s.name = k.name
+  LEFT JOIN LATERAL (
+    SELECT action, changed_by_nom, changed_at FROM app_secrets_audit
+    WHERE secret_name = k.name ORDER BY changed_at DESC LIMIT 1
+  ) a ON TRUE;
+  RETURN COALESCE(v_result, '{}'::JSON);
+END;
+$$;
+
+-- Réservée au service_role (edge functions). Jamais accessible aux utilisateurs.
+CREATE OR REPLACE FUNCTION get_app_secret(p_name TEXT)
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, vault AS $$
+DECLARE v_secret TEXT;
+BEGIN
+  SELECT decrypted_secret INTO v_secret FROM vault.decrypted_secrets WHERE name = p_name;
+  RETURN v_secret;
+END;
+$$;
+
+-- ============================================================
+-- FONCTIONS — Rate-limit login (alimentées par edge function auth-gate)
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION count_recent_login_failures(p_employee_id TEXT)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
+DECLARE
+  v_count INTEGER; v_retry_after INTEGER;
+  v_window_start TIMESTAMPTZ; v_clean TEXT;
+BEGIN
+  v_clean := LOWER(TRIM(COALESCE(p_employee_id, '')));
+  IF v_clean = '' THEN RETURN json_build_object('count', 0, 'retry_after_seconds', 0); END IF;
+  v_window_start := NOW() - INTERVAL '15 minutes';
+  SELECT COUNT(*) INTO v_count FROM login_attempts
+    WHERE LOWER(employee_id) = v_clean AND success = FALSE AND attempted_at > v_window_start;
+  IF v_count < 5 THEN RETURN json_build_object('count', v_count, 'retry_after_seconds', 0); END IF;
+  SELECT EXTRACT(EPOCH FROM (MIN(attempted_at) + INTERVAL '15 minutes' - NOW()))::INTEGER
+    INTO v_retry_after FROM login_attempts
+    WHERE LOWER(employee_id) = v_clean AND success = FALSE AND attempted_at > v_window_start;
+  RETURN json_build_object('count', v_count, 'retry_after_seconds', GREATEST(v_retry_after, 1));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION record_login_attempt(p_employee_id TEXT, p_success BOOLEAN)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF p_employee_id IS NULL OR TRIM(p_employee_id) = '' THEN RETURN; END IF;
+  INSERT INTO login_attempts (employee_id, success)
+  VALUES (LOWER(TRIM(p_employee_id)), COALESCE(p_success, FALSE));
+  DELETE FROM login_attempts WHERE attempted_at < NOW() - INTERVAL '7 days';
+END;
+$$;
+
+-- ============================================================
 -- TRIGGERS
 -- ============================================================
 
@@ -1048,6 +1228,9 @@ ALTER TABLE notification_config  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_emails  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_queue   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_log     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_secrets_audit    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hg_confirm_attempts  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE login_attempts       ENABLE ROW LEVEL SECURITY;
 
 -- ---- grappes ----
 CREATE POLICY "Lecture grappes"  ON grappes FOR SELECT TO authenticated USING (true);
@@ -1107,7 +1290,8 @@ CREATE POLICY "Gestion external_labs"  ON external_labs FOR ALL    TO authentica
   USING (current_role_name() = 'admin') WITH CHECK (current_role_name() = 'admin');
 
 -- ---- envois ----
-CREATE POLICY "Lecture envois"       ON envois FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Lecture envois"       ON envois FOR SELECT TO authenticated
+  USING (exp_labo_id = ANY(current_labo_ids()) OR dest_labo_id = ANY(current_labo_ids()) OR current_role_name() IN ('superviseur_grappe','admin'));
 CREATE POLICY "Création envois"      ON envois FOR INSERT TO authenticated
   WITH CHECK (exp_labo_id = ANY(current_labo_ids()) OR current_role_name() IN ('superviseur_grappe','admin'));
 CREATE POLICY "Mise à jour envois"   ON envois FOR UPDATE TO authenticated
@@ -1116,7 +1300,8 @@ CREATE POLICY "Mise à jour envois"   ON envois FOR UPDATE TO authenticated
   WITH CHECK (true);
 
 -- ---- envois_hgrappe ----
-CREATE POLICY "Lecture envois_hgrappe"      ON envois_hgrappe FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Lecture envois_hgrappe"      ON envois_hgrappe FOR SELECT TO authenticated
+  USING (exp_labo_id = ANY(current_labo_ids()) OR current_role_name() IN ('superviseur_grappe','admin'));
 CREATE POLICY "Création envois_hgrappe"     ON envois_hgrappe FOR INSERT TO authenticated
   WITH CHECK (exp_labo_id = ANY(current_labo_ids()) OR current_role_name() IN ('superviseur_grappe','admin'));
 CREATE POLICY "Mise à jour envois_hgrappe"  ON envois_hgrappe FOR UPDATE TO authenticated
@@ -1131,12 +1316,14 @@ CREATE POLICY "Création bons_depart"    ON bons_depart FOR INSERT TO authentica
 CREATE POLICY "Mise à jour bons_depart" ON bons_depart FOR UPDATE TO authenticated
   USING (labo_id = ANY(current_labo_ids()) OR current_role_name() IN ('superviseur_grappe','admin'))
   WITH CHECK (true);
-CREATE POLICY "Lecture bons_depart_sections"    ON bons_depart_sections FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Lecture bons_depart_sections"    ON bons_depart_sections FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM bons_depart bd WHERE bd.id = bon_id AND (bd.labo_id = ANY(current_labo_ids()) OR current_role_name() IN ('superviseur_grappe','admin'))));
 CREATE POLICY "Mise à jour bons_depart_sections" ON bons_depart_sections FOR UPDATE TO authenticated
   USING (EXISTS (SELECT 1 FROM bons_depart bd WHERE bd.id = bon_id
     AND (bd.labo_id = ANY(current_labo_ids()) OR current_role_name() IN ('superviseur_grappe','admin'))))
   WITH CHECK (true);
-CREATE POLICY "Lecture bons_depart_envois"      ON bons_depart_envois   FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Lecture bons_depart_envois"      ON bons_depart_envois   FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM bons_depart bd WHERE bd.id = bon_id AND (bd.labo_id = ANY(current_labo_ids()) OR current_role_name() IN ('superviseur_grappe','admin'))));
 
 -- ---- notifications ----
 CREATE POLICY "Lecture notif_config"  ON notification_config FOR SELECT TO authenticated USING (current_role_name() = 'admin');
@@ -1146,6 +1333,22 @@ CREATE POLICY "Gestion notif_emails"  ON notification_emails FOR ALL    TO authe
 CREATE POLICY "Insertion notif_queue" ON notification_queue  FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "Lecture notif_queue"   ON notification_queue  FOR SELECT TO authenticated USING (current_role_name() IN ('admin','superviseur_grappe'));
 CREATE POLICY "Lecture notif_log"     ON notification_log    FOR SELECT TO authenticated USING (current_role_name() IN ('admin','superviseur_grappe'));
+
+-- ---- app_secrets_audit (admin only) ----
+CREATE POLICY "Lecture audit secrets (admin)" ON app_secrets_audit
+  FOR SELECT TO authenticated USING (current_role_name() = 'admin');
+CREATE POLICY "Insertion audit secrets"       ON app_secrets_audit
+  FOR INSERT TO authenticated WITH CHECK (current_role_name() = 'admin');
+
+-- ---- hg_confirm_attempts (lecture admin/grappe, écriture via SECURITY DEFINER seulement) ----
+CREATE POLICY "Lecture hg_confirm_attempts" ON hg_confirm_attempts
+  FOR SELECT TO authenticated
+  USING (current_role_name() IN ('admin','superviseur_grappe'));
+
+-- ---- login_attempts (lecture admin/grappe, écriture via edge function service_role) ----
+CREATE POLICY "Lecture login_attempts (admin/grappe)" ON login_attempts
+  FOR SELECT TO authenticated
+  USING (current_role_name() IN ('admin','superviseur_grappe'));
 
 -- ============================================================
 -- DROITS D'EXÉCUTION
@@ -1169,6 +1372,19 @@ GRANT EXECUTE ON FUNCTION get_envoi_hgrappe_by_token(UUID)                      
 GRANT EXECUTE ON FUNCTION get_envoi_hgrappe_by_numero(TEXT, TEXT)                                                   TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION get_hg_confirm_cfg()                                                                      TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION confirm_envoi_hgrappe(UUID,BOOLEAN,TEXT[],TEXT,TEXT,TIMESTAMPTZ)                          TO anon, authenticated;
+
+-- Vault — secrets applicatifs
+GRANT EXECUTE ON FUNCTION set_app_secret(TEXT, TEXT)                                                                TO authenticated;
+GRANT EXECUTE ON FUNCTION get_app_secret_status(TEXT)                                                               TO authenticated;
+GRANT EXECUTE ON FUNCTION list_app_secrets_status()                                                                 TO authenticated;
+REVOKE EXECUTE ON FUNCTION get_app_secret(TEXT)                                                                     FROM PUBLIC, authenticated, anon;
+GRANT  EXECUTE ON FUNCTION get_app_secret(TEXT)                                                                     TO service_role;
+
+-- Rate-limit login (réservé aux edge functions / service_role)
+REVOKE EXECUTE ON FUNCTION count_recent_login_failures(TEXT)                                                        FROM PUBLIC, authenticated, anon;
+REVOKE EXECUTE ON FUNCTION record_login_attempt(TEXT, BOOLEAN)                                                      FROM PUBLIC, authenticated, anon;
+GRANT  EXECUTE ON FUNCTION count_recent_login_failures(TEXT)                                                        TO service_role;
+GRANT  EXECUTE ON FUNCTION record_login_attempt(TEXT, BOOLEAN)                                                      TO service_role;
 
 -- ============================================================
 -- INDEX
@@ -1212,6 +1428,9 @@ CREATE INDEX IF NOT EXISTS idx_notif_queue_envoi     ON notification_queue(envoi
 CREATE INDEX IF NOT EXISTS idx_notif_emails_labo     ON notification_emails(labo_id, dept_id);
 CREATE INDEX IF NOT EXISTS idx_notif_log_sent        ON notification_log(sent_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notif_log_batch       ON notification_log(batch_id);
+CREATE INDEX IF NOT EXISTS idx_app_secrets_audit_name ON app_secrets_audit(secret_name, changed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_hg_confirm_attempts    ON hg_confirm_attempts(numero, attempted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_emp_ts  ON login_attempts(employee_id, attempted_at DESC);
 
 -- ============================================================
 -- REALTIME

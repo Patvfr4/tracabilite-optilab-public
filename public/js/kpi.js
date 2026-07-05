@@ -12,10 +12,14 @@ export async function initDashboard(days) {
   if (widgets) widgets.innerHTML = '<div class="kpi-loading">Chargement…</div>';
 
   try {
-    var r = await state.sb.rpc('get_labo_kpis', { p_labo_id: state.activeLaboId, p_days: _activeDays });
-    if (r.error) throw r.error;
-    _renderWidgets(r.data.stats_globales);
-    _renderChart(r.data.flux_quotidien);
+    var results = await Promise.all([
+      state.sb.rpc('get_labo_kpis',   { p_labo_id: state.activeLaboId, p_days: _activeDays }),
+      state.sb.rpc('get_icr_stats',   { p_labo_id: state.activeLaboId, p_days: _activeDays }),
+    ]);
+    if (results[0].error) throw results[0].error;
+    _renderWidgets(results[0].data.stats_globales);
+    _renderChart(results[0].data.flux_quotidien);
+    _renderIcrSection(results[1].data);
   } catch (err) {
     if (widgets) widgets.innerHTML = '';
     notifier('kpierr', 'Impossible de charger les KPI : ' + (err.message || err), 'e');
@@ -58,6 +62,38 @@ function _renderWidgets(stats) {
 
 function _cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function _renderIcrSection(data) {
+  var el = document.getElementById('kpi-icr');
+  if (!el) return;
+  if (!data || !data.length) {
+    el.innerHTML = '<div class="kpi-empty" style="padding:16px 0;font-size:13px;color:var(--t2)">Aucun code ICR sur la période.</div>';
+    return;
+  }
+  var hasData = data.some(function(d) { return (d.nb_intra || 0) + (d.nb_hgrappe || 0) > 0; });
+  if (!hasData) {
+    el.innerHTML = '<div class="kpi-empty" style="padding:16px 0;font-size:13px;color:var(--t2)">Aucun envoi avec code ICR sur la période.</div>';
+    return;
+  }
+  var rows = data.map(function(d) {
+    var total = (d.nb_intra || 0) + (d.nb_hgrappe || 0);
+    return '<tr style="border-bottom:1px solid var(--b3)">'
+      + '<td style="padding:8px 10px;font-family:var(--fm);font-size:12px;color:var(--t2);white-space:nowrap">' + d.code + '</td>'
+      + '<td style="padding:8px 10px;font-size:13px">' + d.libelle + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-size:13px">' + (d.nb_intra || 0) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-size:13px">' + (d.nb_hgrappe || 0) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right;font-size:13px;font-weight:700">' + total + '</td>'
+      + '</tr>';
+  }).join('');
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse">'
+    + '<thead><tr style="border-bottom:2px solid var(--b3)">'
+    + '<th style="text-align:left;padding:6px 10px;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">Code</th>'
+    + '<th style="text-align:left;padding:6px 10px;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">Libellé</th>'
+    + '<th style="text-align:right;padding:6px 10px;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">Intra</th>'
+    + '<th style="text-align:right;padding:6px 10px;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">HG</th>'
+    + '<th style="text-align:right;padding:6px 10px;font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">Total</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
 function _renderChart(data) {

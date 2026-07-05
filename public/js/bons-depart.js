@@ -800,6 +800,48 @@ export async function saveBonsDepartLabs() {
 
 // ── Scan DataMatrix dans la création de bon ───────────────────────────────────
 
+var _zxingReader = null;
+
+export function startCameraScan() {
+  var ZXing = window.ZXing;
+  if (!ZXing || !ZXing.BrowserMultiFormatReader) {
+    toast('La bibliothèque de scan caméra n\'est pas chargée.', 'e');
+    return;
+  }
+  var modal = document.getElementById('bd-cam-modal');
+  var video = document.getElementById('bd-cam-video');
+  if (!modal || !video) return;
+  modal.style.display = 'flex';
+
+  _zxingReader = new ZXing.BrowserMultiFormatReader();
+  _zxingReader.decodeFromConstraints(
+    { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
+    video,
+    function(result) {
+      if (!result) return;
+      var text = result.getText();
+      var input = document.getElementById('bd-scan-input');
+      if (input) input.value = text;
+      stopCameraScan();
+      bdScanEnvoi();
+    }
+  ).catch(function(err) {
+    toast('Caméra inaccessible : ' + (err && err.message ? err.message : String(err)), 'e');
+    var m = document.getElementById('bd-cam-modal');
+    if (m) m.style.display = 'none';
+    _zxingReader = null;
+  });
+}
+
+export function stopCameraScan() {
+  if (_zxingReader) {
+    try { _zxingReader.reset(); } catch (e) {}
+    _zxingReader = null;
+  }
+  var modal = document.getElementById('bd-cam-modal');
+  if (modal) modal.style.display = 'none';
+}
+
 export function bdScanEnvoi() {
   var input  = document.getElementById('bd-scan-input');
   var msgEl  = document.getElementById('bd-scan-msg');

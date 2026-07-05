@@ -1,6 +1,6 @@
 ﻿import { state } from './state.js';
 import { closeGMod, confirm2 } from './ui.js';
-import { printBordereau } from './print.js';
+import { printBordereau, _ensureBwip } from './print.js';
 import { adresseDestHG } from './hgrappe.js';
 
 export async function reprintHGDocsFromEnvoi(id){
@@ -37,29 +37,32 @@ export async function printHGDocs(){
   var _dl=d.destLab||null,_pl=_dl&&_dl.parent?_dl.parent:null;
   var destLabelText=(_dl&&_dl.label_text)||(_pl&&_pl.label_text)||'';
   state.donneesImpression={numero:d.numero,exp:d.exp,dest:d.dest,temp:d.temp,transporteur:d.transporteur,tubes:d.tubes,depts:[],notes:d.notes,creePar:d.creePar,tsEnvoi:d.tsEnvoi,typeSpecimen:d.typeSpecimen,glaceSeche:d.glaceSeche,isHG:true,destLabelText:destLabelText,expAdresse:d.expLab.adresse||'',expVille:d.expLab.ville||'',expCodePostal:d.expLab.code_postal||'',expTel:d.expLab.telephone||'',destAdresse:_da.adresse||'',destAdresse2:_da.adresse2||'',destVille:_da.ville||'',destCodePostal:_da.code_postal||'',destProvince:_da.province||'',destPays:_da.pays||'',destTel:_da.telephone||''};
-  var bordereauHtml=printBordereau(state.CFG.hgrappeFormat||'bordereau',true)||'';
+  var bordereauHtml=await printBordereau(state.CFG.formatEtiquetteHG||'etiquette',true)||'';
+  await _ensureBwip();
   var bcNumeroSvg='';
-  var tmpSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  tmpSvg.id='_bc_fg74_num';tmpSvg.style.display='none';document.body.appendChild(tmpSvg);
-  try{JsBarcode('#_bc_fg74_num',d.numero,{format:'CODE128',width:1.5,height:40,displayValue:true,fontSize:10,margin:4});tmpSvg.setAttribute('width','100%');tmpSvg.setAttribute('height','62');}catch(ex){}
-  bcNumeroSvg=tmpSvg.outerHTML;document.body.removeChild(tmpSvg);
+  if(window.bwipjs&&d.numero){
+    try{
+      var _bcn=document.createElement('canvas');
+      bwipjs.toCanvas(_bcn,{bcid:'code128',text:d.numero,scale:2,height:8,includetext:true,textxalign:'center'});
+      bcNumeroSvg='<img src="'+_bcn.toDataURL('image/png')+'" style="width:100%;height:auto;display:block">';
+    }catch(_bcnex){}
+  }
   var bcCodeSvg='';
-  if(_vc){
-    var tmpSvg2=document.createElementNS('http://www.w3.org/2000/svg','svg');
-    tmpSvg2.id='_bc_fg74_vc';tmpSvg2.style.display='none';document.body.appendChild(tmpSvg2);
-    try{JsBarcode('#_bc_fg74_vc',_vc,{format:'CODE128',width:1.5,height:40,displayValue:true,fontSize:10,margin:4});tmpSvg2.setAttribute('width','100%');tmpSvg2.setAttribute('height','62');}catch(ex){}
-    bcCodeSvg=tmpSvg2.outerHTML;document.body.removeChild(tmpSvg2);
+  if(window.bwipjs&&_vc){
+    try{
+      var _bcc=document.createElement('canvas');
+      bwipjs.toCanvas(_bcc,{bcid:'code128',text:_vc,scale:2,height:8,includetext:true,textxalign:'center'});
+      bcCodeSvg='<img src="'+_bcc.toDataURL('image/png')+'" style="width:100%;height:auto;display:block">';
+    }catch(_bccex){}
   }
   var qrDataUrl='';
-  try{
-    qrDataUrl=await new Promise(function(resolve){
-      var div=document.createElement('div');div.style.cssText='position:fixed;top:-9999px;left:-9999px;width:120px;height:120px;overflow:hidden';document.body.appendChild(div);
-      try{
-        new QRCode(div,{text:barcodeUrl,width:120,height:120,colorDark:'#000000',colorLight:'#ffffff'});
-        setTimeout(function(){var canvas=div.querySelector('canvas');var img=div.querySelector('img');var url2=canvas?canvas.toDataURL():(img&&img.src&&img.src.startsWith('data:')?img.src:'');document.body.removeChild(div);resolve(url2);},350);
-      }catch(e2){if(document.body.contains(div))document.body.removeChild(div);resolve('');}
-    });
-  }catch(e3){}
+  if(window.bwipjs&&barcodeUrl){
+    try{
+      var _qrc=document.createElement('canvas');
+      bwipjs.toCanvas(_qrc,{bcid:'qrcode',text:barcodeUrl,scale:4,padding:2});
+      qrDataUrl=_qrc.toDataURL('image/png');
+    }catch(_qrex){}
+  }
   printHGCombined(d,barcodeUrl,bordereauHtml,bcNumeroSvg,bcCodeSvg,qrDataUrl);
 }
 

@@ -152,6 +152,12 @@ body::before{content:'';position:fixed;inset:0;background-image:url('/img/cross-
     try{
       var r=await sb.rpc('get_envoi_hgrappe_by_numero',{p_numero:num.toUpperCase(),p_verify_code:code.toUpperCase()});
       if(r.error||(r.data&&r.data.error)){
+        var e2 = r.data && r.data.error;
+        if (e2 === 'too_many_attempts') {
+          var mins = Math.ceil((r.data.retry_after_seconds || 900) / 60);
+          renderNotFound('Trop de tentatives sur ce numéro d\'envoi. Réessayez dans environ ' + mins + ' minutes.<br><em class="en">Too many attempts for this shipment number. Try again in about ' + mins + ' minutes.</em>');
+          return;
+        }
         renderNotFound('Lien invalide ou code de vérification incorrect.<br><em class="en">Invalid link or incorrect verification code.</em>');
         return;
       }
@@ -222,11 +228,29 @@ body::before{content:'';position:fixed;inset:0;background-image:url('/img/cross-
       var r=await sb.rpc('get_envoi_hgrappe_by_numero',{p_numero:num,p_verify_code:code});
       if(r.error||(r.data&&r.data.error)){
         var e2=r.data&&r.data.error;
-        var msg=e2==='not_found'
-          ?'Numéro d\'envoi introuvable. Vérifiez le numéro et réessayez.<br><em class="en">Shipment number not found. Check the number and try again.</em>'
-          :e2==='wrong_code'
-          ?'Code de vérification incorrect. Vérifiez le code imprimé sur le document F-G-74.<br><em class="en">Incorrect verification code. Check the code printed on the F-G-74 document.</em>'
-          :'Erreur réseau. Vérifiez votre connexion et réessayez.<br><em class="en">Network error. Try again.</em>';
+        var msg;
+        if (e2==='not_found') {
+          msg='Numéro d\'envoi introuvable. Vérifiez le numéro et réessayez.<br><em class="en">Shipment number not found. Check the number and try again.</em>';
+        } else if (e2==='wrong_code') {
+          msg='Code de vérification incorrect. Vérifiez le code imprimé sur le document F-G-74.<br><em class="en">Incorrect verification code. Check the code printed on the F-G-74 document.</em>';
+        } else if (e2==='too_many_attempts') {
+          var mins=Math.ceil((r.data.retry_after_seconds||900)/60);
+          var secs=r.data.retry_after_seconds||900;
+          msg='Trop de tentatives sur ce numéro. Réessayez dans environ '+mins+' minute(s).<br><em class="en">Too many attempts for this shipment number. Try again in about '+mins+' minute(s).</em>';
+          err.innerHTML=msg;err.classList.add('show');
+          var nInp=document.getElementById('nf-num'),cInp=document.getElementById('nf-code');
+          if(nInp)nInp.disabled=true;
+          if(cInp)cInp.disabled=true;
+          setTimeout(function(){
+            if(btn){btn.disabled=false;btn.textContent='Rechercher / Search';}
+            if(nInp)nInp.disabled=false;
+            if(cInp)cInp.disabled=false;
+            err.classList.remove('show');
+          },secs*1000);
+          return;
+        } else {
+          msg='Erreur réseau. Vérifiez votre connexion et réessayez.<br><em class="en">Network error. Try again.</em>';
+        }
         err.innerHTML=msg;err.classList.add('show');
         if(btn){btn.disabled=false;btn.textContent='Rechercher / Search';}
         return;

@@ -18,7 +18,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { state, sbCall } from './state.js';
-import { escapeHtml, departements } from './utils.js';
+import { escapeHtml, formatDateTime, departements } from './utils.js';
 import { notifier, confirm2 } from './ui.js';
 import { addLab, renderTempPills, populateSels } from './labs.js';
 import { estAdmin } from './auth.js';
@@ -62,11 +62,15 @@ export async function loadConfig() {
   if (!CFG.hgrappeEnabledLabs)     CFG.hgrappeEnabledLabs   = [];
   if (!CFG.bonsDepartEnabledLabs)  CFG.bonsDepartEnabledLabs = [];
   // Charger les labs BD et HG depuis module_config (source de vérité V2)
-  var _rMods = await state.sb.from('module_config').select('module,labo_id').eq('active',true).in('module',['bons_depart','hgrappe']);
+  var _rMods = await state.sb.from('module_config').select('module,labo_id,config').eq('active',true).in('module',['bons_depart','hgrappe','impression','gestion_echantillons']);
   if (!_rMods.error && _rMods.data) {
-    CFG.bonsDepartEnabledLabs = _rMods.data.filter(function(r){return r.module==='bons_depart';}).map(function(r){return r.labo_id;});
-    CFG.hgrappeEnabledLabs    = _rMods.data.filter(function(r){return r.module==='hgrappe';}).map(function(r){return r.labo_id;});
+    CFG.bonsDepartEnabledLabs    = _rMods.data.filter(function(r){return r.module==='bons_depart';}).map(function(r){return r.labo_id;});
+    CFG.hgrappeEnabledLabs       = _rMods.data.filter(function(r){return r.module==='hgrappe';}).map(function(r){return r.labo_id;});
+    CFG.echantillonsEnabledLabs  = _rMods.data.filter(function(r){return r.module==='gestion_echantillons';}).map(function(r){return r.labo_id;});
+    var _imp = _rMods.data.find(function(r){return r.module==='impression';});
+    if (_imp && _imp.config) CFG.silpPrintBordereau = !!_imp.config.silp_print_bordereau;
   }
+  var cbSilp = document.getElementById('cfg-silp-print-bordereau'); if (cbSilp) cbSilp.checked = !!CFG.silpPrintBordereau;
   if (!CFG.hgrappeFormat)         CFG.hgrappeFormat         = 'bordereau';
   if (!CFG.hgrappeAlarmDays)      CFG.hgrappeAlarmDays      = 3;
   if (!CFG.hgrappeAutoCloseDays)  CFG.hgrappeAutoCloseDays  = 10;
@@ -81,8 +85,7 @@ export async function loadConfig() {
   var bCLE = document.getElementById('brd-canutec-label-en'); if (bCLE) bCLE.value = CFG.bordereau.canutecLabelEn || 'Emergency 24h';
   var bW   = document.getElementById('brd-warn-size');        if (bW)   bW.checked = CFG.bordereau.warnSize !== false;
   if (document.getElementById('spec-list'))        renderCfgSpec();
-  if (document.getElementById('fmt-list'))         renderCfgFormats();
-  if (document.getElementById('hsilp-fmt-list'))  renderCfgHsilpFormat();
+  if (document.getElementById('fmt-gabarits'))     renderCfgFormatsAll();
   if (document.getElementById('cfgp-modules-body')) renderCfgModules();
 }
 
@@ -126,9 +129,13 @@ export async function loadGrappeConfig(grappeId) {
     if (row.key === 'hgrappe_alarm_days')      CFG.hgrappeAlarmDays      = Number(row.value) || 3;
     if (row.key === 'hgrappe_auto_close_days') CFG.hgrappeAutoCloseDays  = Number(row.value) || 10;
     if (row.key === 'hgrappe_confirm_by_numero') CFG.hgrappeConfirmByNumero = row.value !== false && row.value !== 'false';
+    if (row.key === 'format_etiquette_intra') CFG.formatEtiquetteIntra = typeof row.value === 'string' ? row.value.replace(/^"|"$/g,'') : 'etiquette';
+    if (row.key === 'format_etiquette_hg')    CFG.formatEtiquetteHG    = typeof row.value === 'string' ? row.value.replace(/^"|"$/g,'') : 'etiquette';
+    if (row.key === 'format_bordereau')       CFG.formatBordereau      = typeof row.value === 'string' ? row.value.replace(/^"|"$/g,'') : 'bordereau';
   });
   applyBranding();
   if (window.populateSels) window.populateSels();
+  if (document.getElementById('fmt-gabarits')) renderCfgFormatsAll();
 }
 
 export async function switchCfgGrappe(grappeId) {
@@ -288,6 +295,8 @@ export function renderCfgModules() {
       + '</div>';
   }
 
+  var ecEnabled = (window.CFG && window.CFG.echantillonsEnabledLabs) || [];
+
   var html = '<div class="cfg-sec">'
     + '<div class="cfg-stitle">Bons de départ</div>'
     + '<div class="cfg-hint" style="margin-bottom:12px">Quand actif, le transporteur n\'est pas requis sur l\'envoi — il est assigné à la création du bon de départ.</div>'
@@ -298,6 +307,12 @@ export function renderCfgModules() {
     + '<div class="cfg-stitle">Hors-grappe</div>'
     + '<div class="cfg-hint" style="margin-bottom:12px">Donne accès au mode Hors-grappe (envois vers des laboratoires externes).</div>'
     + state.laboratoires.map(function(l) { return labToggleRow(l, hgEnabled.indexOf(l.id) !== -1, 'hgrappe'); }).join('')
+    + '</div>';
+
+  html += '<div class="cfg-sec">'
+    + '<div class="cfg-stitle">Gestion des échantillons</div>'
+    + '<div class="cfg-hint" style="margin-bottom:12px">Permet de scanner les codes-barres des échantillons sur les envois hors-SILP. Active la vérification à la réception et la génération de NC en cas de discordance.</div>'
+    + state.laboratoires.map(function(l) { return labToggleRow(l, ecEnabled.indexOf(l.id) !== -1, 'gestion_echantillons'); }).join('')
     + '</div>';
 
   body.innerHTML = html;
@@ -319,6 +334,12 @@ export async function toggleModuleLab(module, labId, active) {
     if (rHG.error) { notifier('cfgerr', 'Erreur : ' + rHG.error.message, 'e'); return; }
     var canHG = window.isHGEnabled && window.isHGEnabled();
     var sw = document.getElementById('mode-sw'); if (sw) sw.classList.toggle('gone', !canHG);
+  } else if (module === 'gestion_echantillons') {
+    var ecEnabled = (state.CFG && state.CFG.echantillonsEnabledLabs || []).filter(function(id) { return id !== labId; });
+    if (active) ecEnabled.push(labId);
+    if (state.CFG) state.CFG.echantillonsEnabledLabs = ecEnabled;
+    var rEc = await state.sb.from('module_config').upsert({ module: 'gestion_echantillons', labo_id: labId, active: active, updated_at: new Date().toISOString() }, { onConflict: 'module,labo_id' });
+    if (rEc.error) { notifier('cfgerr', 'Erreur : ' + rEc.error.message, 'e'); return; }
   }
   renderCfgModules();
   if (window.renderCfgLabs) window.renderCfgLabs();
@@ -420,9 +441,17 @@ export async function saveMessages() {
   if (await saveCfg('msg_login', ml) && await saveCfg('msg_home', mh)) { window.CFG.messages.login = ml; window.CFG.messages.home = mh; applyMessages(); notifier('cfgsuc', 'Messages mis à jour.', 's'); }
 }
 
-export async function saveInterfaceCfg() {
-  var v = document.getElementById('cfg-print-bordereau').checked;
-  if (await saveCfg('print_bordereau', v)) { window.CFG.printBordereau = v; notifier('cfgsuc', 'Paramètre mis à jour.', 's'); }
+export async function saveSilpPrintBordereau() {
+  var v = document.getElementById('cfg-silp-print-bordereau').checked;
+  var sel = await state.sb.from('module_config').select('id').eq('module','impression').is('labo_id',null).maybeSingle();
+  var ok;
+  if (sel.data) {
+    ok = !(await state.sb.from('module_config').update({config:{silp_print_bordereau:v},updated_at:new Date().toISOString()}).eq('id',sel.data.id)).error;
+  } else {
+    ok = !(await state.sb.from('module_config').insert({module:'impression',labo_id:null,active:true,config:{silp_print_bordereau:v}})).error;
+  }
+  if (ok) { window.CFG.silpPrintBordereau = v; notifier('cfgsuc', 'Paramètre mis à jour.', 's'); }
+  else notifier('cfgerr', 'Erreur lors de la sauvegarde.', 'e');
 }
 
 export async function saveAlarms() {
@@ -488,9 +517,10 @@ export async function saveCustomCss() {
   if (await saveCfg('custom_css', css)) { window.CFG.customCss = css; applyCustomCss(); notifier('cfgsuc', 'CSS personnalisé appliqué.', 's'); }
 }
 
-export function _buildFmtCards(activeId, radioName, onChangeFn) {
+export function _buildFmtCards(activeId, radioName, onChangeFn, formats) {
+  var fmts = formats || window.CFG.bordereau.formats;
   return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">'
-    + window.CFG.bordereau.formats.map(function(f) {
+    + fmts.map(function(f) {
       return '<label class="fmt-card">'
         + '<input type="radio" name="' + radioName + '" value="' + escapeHtml(f.id) + '"' + (f.id === activeId ? ' checked' : '') + ' onchange="' + onChangeFn + '(this.value)"/>'
         + '<div class="fmt-card-inner"><div class="fmt-card-name">' + escapeHtml(f.nom) + '</div>'
@@ -499,26 +529,29 @@ export function _buildFmtCards(activeId, radioName, onChangeFn) {
     }).join('') + '</div>';
 }
 
-export function renderCfgFormats() {
-  var el = document.getElementById('fmt-list'); if (!el) return;
-  el.innerHTML = _buildFmtCards(window.CFG.bordereau.activeFormat || 'grille', 'brd-fmt', 'setActiveFormat');
+export function renderCfgFormatsAll() {
+  var CFG = window.CFG;
+  var ei = document.getElementById('fmt-etq-intra');
+  if (ei) ei.innerHTML = _buildFmtCards(CFG.formatEtiquetteIntra || 'etiquette', 'fmt-etq-intra', 'saveFormatEtiquetteIntra', CFG.etiquetteFormats);
+  var eh = document.getElementById('fmt-etq-hg');
+  if (eh) eh.innerHTML = _buildFmtCards(CFG.formatEtiquetteHG || 'etiquette', 'fmt-etq-hg', 'saveFormatEtiquetteHG', CFG.etiquetteFormats);
+  var eb = document.getElementById('fmt-brd');
+  if (eb) eb.innerHTML = _buildFmtCards(CFG.formatBordereau || 'bordereau', 'fmt-brd', 'saveFormatBordereau', CFG.bordereauFormats);
 }
 
-export async function setActiveFormat(id) {
-  window.CFG.bordereau.activeFormat = id;
-  if (await saveBrdCfg()) notifier('cfgsuc', 'Format du bordereau mis à jour.', 's');
+export async function saveFormatEtiquetteIntra(id) {
+  window.CFG.formatEtiquetteIntra = id;
+  if (await saveGrappeCfg('format_etiquette_intra', id)) notifier('cfgsuc', 'Format étiquettes intra-grappe mis à jour.', 's');
 }
 
-export function renderCfgHsilpFormat() {
-  var el = document.getElementById('hsilp-fmt-list'); if (!el) return;
-  el.innerHTML = _buildFmtCards(window.CFG.hsilpBordereauFormat || 'bordereau', 'hsilp-fmt', 'saveHsilpFormat');
+export async function saveFormatEtiquetteHG(id) {
+  window.CFG.formatEtiquetteHG = id;
+  if (await saveGrappeCfg('format_etiquette_hg', id)) notifier('cfgsuc', 'Format étiquettes hors-grappe mis à jour.', 's');
 }
 
-export async function saveHsilpFormat(id) {
-  window.CFG.hsilpBordereauFormat = id;
-  var hint = document.getElementById('hsilp-fmt-hint');
-  if (hint) { var f = window.CFG.bordereau.formats.find(function(x) { return x.id === id; }) || {}; hint.textContent = f.desc || ''; }
-  if (await saveCfg('hsilp_bordereau_format', id)) notifier('cfgsuc', 'Format Hors SILP mis à jour.', 's');
+export async function saveFormatBordereau(id) {
+  window.CFG.formatBordereau = id;
+  if (await saveGrappeCfg('format_bordereau', id)) notifier('cfgsuc', 'Format bordereau mis à jour.', 's');
 }
 
 export async function saveBrdGeneral() {
@@ -755,7 +788,80 @@ export async function renderCfgNotifications() {
   _renderNotifProvider();
   _renderNotifEmailsAll();
   _renderNotifLog();
+  _renderSecretStatuses();
 }
+
+// ── Secrets (Resend API key, SMTP password) ──────────────────────────────────
+// Stockés dans notification_config, accès admin uniquement via RLS.
+
+var _secModalName = null;
+
+async function _renderSecretStatuses() {
+  if (!estAdmin()) return;
+  var configured = _notifCfg && (_notifCfg.resend_api_key || _notifCfg.smtp_pass);
+  _setSecretCardStatus('RESEND_API_KEY', !!(_notifCfg && _notifCfg.resend_api_key));
+  _setSecretCardStatus('SMTP_PASS',      !!(_notifCfg && _notifCfg.smtp_pass));
+}
+
+function _setSecretCardStatus(name, configured) {
+  var el = document.getElementById('sec-status-' + name);
+  if (!el) return;
+  if (configured) {
+    el.innerHTML =
+      '<span style="display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--success,#2E8B57)">'
+      + '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8l4 4 8-8"/></svg>'
+      + 'Configuré</span>';
+  } else {
+    el.innerHTML =
+      '<span style="display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--warning,#D97706)">'
+      + '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L1 13h14L8 2z"/><path d="M8 6v3M8 10.5v.5"/></svg>'
+      + 'Non configuré</span>';
+  }
+}
+
+export function openSecretModal(name, label, placeholder) {
+  if (!estAdmin()) return;
+  _secModalName = name;
+  document.getElementById('sec-modal-title').textContent = 'Modifier — ' + label;
+  document.getElementById('sec-modal-label').textContent = 'Nouvelle valeur';
+  var inp = document.getElementById('sec-modal-input');
+  inp.value = '';
+  inp.placeholder = placeholder || '';
+  inp.type = 'password';
+  document.getElementById('sec-modal-reveal').checked = false;
+  var err = document.getElementById('sec-modal-err');
+  err.textContent = ''; err.style.display = 'none';
+  document.getElementById('secret-modal').style.display = 'flex';
+  setTimeout(function() { inp.focus(); }, 50);
+}
+
+export function closeSecretModal() {
+  _secModalName = null;
+  document.getElementById('secret-modal').style.display = 'none';
+}
+
+export async function saveSecretModal() {
+  if (!estAdmin() || !_secModalName) return;
+  var inp = document.getElementById('sec-modal-input');
+  var err = document.getElementById('sec-modal-err');
+  var val = inp.value;
+  if (!val || val.length === 0) {
+    err.textContent = 'Saisissez une valeur.'; err.style.display = 'block'; return;
+  }
+  var colMap = { 'RESEND_API_KEY': 'resend_api_key', 'SMTP_PASS': 'smtp_pass' };
+  var col = colMap[_secModalName];
+  if (!col) { err.textContent = 'Secret inconnu.'; err.style.display = 'block'; return; }
+  var payload = {};
+  payload[col] = val;
+  var r = await sbCall(state.sb.from('notification_config').update(payload).eq('id', 1), 'cfgerr');
+  inp.value = '';
+  if (r.error) return;
+  if (_notifCfg) _notifCfg[col] = val;
+  closeSecretModal();
+  notifier('cfgsuc', 'Secret enregistré.', 's');
+  _renderSecretStatuses();
+}
+
 
 function _renderNotifToggles() {
   var c = _notifCfg || {};
@@ -769,12 +875,11 @@ function _renderNotifProvider() {
   var rEl = document.getElementById('notif-prov-resend'); if (rEl) rEl.checked = (prov === 'resend');
   var sEl = document.getElementById('notif-prov-smtp');   if (sEl) sEl.checked = (prov === 'smtp');
   _toggleNotifProviderFields(prov);
-  var rk  = document.getElementById('notif-resend-key'); if (rk)  rk.value  = c.resend_api_key ? '●●●●●●●●' : '';
+  // resend_api_key et smtp_pass sont en Deno.env (Edge Function Secrets) — plus en base.
   var sf  = document.getElementById('notif-smtp-from');  if (sf)  sf.value  = c.smtp_from  || '';
   var sh  = document.getElementById('notif-smtp-host');  if (sh)  sh.value  = c.smtp_host  || '';
   var sp  = document.getElementById('notif-smtp-port');  if (sp)  sp.value  = c.smtp_port  || 587;
   var su  = document.getElementById('notif-smtp-user');  if (su)  su.value  = c.smtp_user  || '';
-  var spw = document.getElementById('notif-smtp-pass');  if (spw) spw.value = c.smtp_pass  ? '●●●●●●●●' : '';
   var sf2 = document.getElementById('notif-smtp-from2'); if (sf2) sf2.value = c.smtp_from  || '';
 }
 
@@ -807,17 +912,14 @@ export async function saveNotifProvider() {
   if (!estAdmin()) return;
   var rEl = document.getElementById('notif-prov-resend');
   var prov = rEl && rEl.checked ? 'resend' : 'smtp';
+  // Secrets (resend_api_key, smtp_pass) sont en Edge Function Secrets — pas ici.
   var payload = { provider: prov, updated_at: new Date().toISOString() };
   if (prov === 'resend') {
-    var key = (document.getElementById('notif-resend-key').value || '').trim();
-    if (key && key !== '●●●●●●●●') payload.resend_api_key = key;
     payload.smtp_from = (document.getElementById('notif-smtp-from').value || '').trim();
   } else {
     payload.smtp_host = (document.getElementById('notif-smtp-host').value || '').trim();
     payload.smtp_port = parseInt(document.getElementById('notif-smtp-port').value, 10) || 587;
     payload.smtp_user = (document.getElementById('notif-smtp-user').value || '').trim();
-    var pw = document.getElementById('notif-smtp-pass').value;
-    if (pw && pw !== '●●●●●●●●') payload.smtp_pass = pw;
     payload.smtp_from = (document.getElementById('notif-smtp-from2').value || '').trim();
   }
   var r = await sbCall(state.sb.from('notification_config').update(payload).eq('id', 1), 'cfgerr');
@@ -831,9 +933,13 @@ export async function testNotification() {
   var email = window.prompt('Adresse email de test :');
   if (!email || !email.trim()) return;
   email = email.trim();
-  var r = await sbCall(state.sb.functions.invoke('test-notification', { body: { email: email } }), 'cfgerr');
-  if (r.error) return;
-  if (r.data && r.data.error) { notifier('cfgerr', 'Erreur envoi : ' + r.data.error, 'e'); return; }
+  // Bypass sbCall : on a besoin de r.data même quand le status HTTP est 4xx/5xx
+  // (sbCall nullifie data sur erreur, perdant le message précis de la fonction).
+  var raw;
+  try { raw = await state.sb.functions.invoke('test-notification', { body: { email: email } }); }
+  catch (ex) { notifier('cfgerr', 'Erreur réseau. Vérifiez votre connexion.', 'e'); return; }
+  var errMsg = (raw.data && raw.data.error) ? raw.data.error : (raw.error ? raw.error.message : null);
+  if (errMsg) { notifier('cfgerr', 'Erreur envoi : ' + errMsg, 'e'); return; }
   notifier('cfgsuc', 'Email de test envoyé à ' + email + '.', 's');
   renderCfgNotifications();
 }

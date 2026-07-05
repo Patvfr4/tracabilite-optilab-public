@@ -23,7 +23,7 @@ import {
   showBDDetail, saveBDSection, cancelBon, removeEnvoiFromBon, printBon,
   openAddColis, closeAddColis, bdToggleAddEnvoi, saveAddColis,
   renderBonsDepartLabsToggle, saveBonsDepartLabs,
-  bdScanEnvoi,
+  bdScanEnvoi, startCameraScan, stopCameraScan,
 } from './bons-depart.js';
 import {
   classesPills, departements,
@@ -62,6 +62,7 @@ import {
   togglePdfDrop, pdfStr, exportPDF,
   toggleHistAlerts, toggleResumeAlerts, loadHistPage, loadHistStats, changeHistPage, onHistSearch,
   openEditEnvoi, closeEditEnvoi, afficherPillsTempEdit, selectionnerTempEdit, setEditGlace,
+  setHorsCorridor, setEditHorsCorridor,
   toggleDeptEdit, updatePillsDeptEdit, saveEditEnvoi, showSuccessModalEdit,
   showNoListModal, cancelNoList, confirmNoList, toggleNoSilp, fetchHsilpPreviewNum, showSuccessModalHsilp,
   renderMonCompte, saveMcPw,
@@ -71,8 +72,16 @@ import {
   renderRecherche, onRechercheInput, doRecherche, showRchDetail,
   openAnnulationEnvoi, closeAnnulationEnvoi, saveAnnulationEnvoi,
 } from './envois.js';
-import { printBordereauFromEnvoi, printBordereau } from './print.js';
+import { printBordereauFromEnvoi, printBordereau, printEtiquette, printEtiquetteEtBordereau } from './print.js';
+import {
+  isEchantillonsEnabled,
+  updateEchDepartSectionVisibility, updateEchDepartScanVisible, addEchDepart, removeEchDepart, renderEchDepartChips, getEchantillonsDepart, resetEchantillonsDepart,
+  updateEchHgDepartSectionVisibility, updateEchHgDepartScanVisible, addEchHgDepart, removeEchHgDepart, renderEchHgDepartChips, getEchantillonsHgDepart, resetEchantillonsHgDepart,
+  initEchReceptionSection, onEchNbRecuChange, addEchVerif, removeEchVerif, renderEchVerifChips, getEchVerifNcData, resetEchReceptionSection,
+  initEchDepartEdit, addEchDepartEdit, removeEchDepartEdit, renderEchDepartEditChips, getEchantillonsDepartEdit,
+} from './echantillons.js';
 import { reprintHGDocsFromEnvoi, printHGDocs } from './print-hg.js';
+import { tourStart, tourNext, tourPrev, tourSkip, tourFinish, tourMaybeAutoStart } from './tour.js';
 import {
   _mapEnvoiHG, loadEnvoisHG, loadExtLabs,
   classeBadgeHG, estAlarmeHG, estSansReponse, classeLigneHG, estAlerteHG, afficherLegendeHG,
@@ -87,10 +96,9 @@ import {
   loadHGRSentPage, loadHGRConfPage, loadHGRWaitPage, switchHGRTab, changeHGRPage, renderHGResume,
   loadHGHistPage, loadHGHistStats, changeHGHistPage, onHGHistSearch, renderHGHistorique,
   showHGDetail, openHGFaxModal, closeHGFaxModal, setHgFaxConforme, saveHGFaxConfirm,
-  openEditHGEnvoi, closeHGEditModal, setHgsSGC, setHgeSGC, addHgeList, removeHgeList, renderHgeChips, saveEditHGEnvoi,
+  openEditHGEnvoi, closeHGEditModal, setHgsSGC, setHgeSGC, setHgsHorsCorridor, setHgeHorsCorridor, addHgeList, removeHgeList, renderHgeChips, saveEditHGEnvoi,
   renderCfgHgrappe, renderCfgHgrappeConfirmByNumero, saveHgrappeConfirmByNumero,
   renderHGAlarmsCfg, saveHGAlarms, renderHgrappeLabsToggle, saveHgrappeLabs,
-  renderCfgHgrappeFormat, saveHgrappeFormat,
   renderExtLabsList, toggleExtLabEdit, saveExtLabEdit, addExtLab, toggleExtLabActive,
 } from './hgrappe.js';
 
@@ -101,18 +109,19 @@ import {
   showCfgTab, openCfgAddModal, closeCfgAddModal, submitCfgAddModal,
   renderCfgModules, toggleModuleLab,
   loadGrappeConfig, saveGrappeCfg, renderCfgGrappe, switchCfgGrappe,
-  saveBranding, saveMessages, saveInterfaceCfg,
+  saveBranding, saveMessages, saveSilpPrintBordereau,
   saveAlarms, saveAlarmR, saveAlarmP,
   renderCfgBadges, livePreviewBadge, resetBadge, saveBadges,
   renderCfgTheme, saveCustomCss,
-  _buildFmtCards, renderCfgFormats, setActiveFormat,
-  renderCfgHsilpFormat, saveHsilpFormat,
+  _buildFmtCards, renderCfgFormatsAll,
+  saveFormatEtiquetteIntra, saveFormatEtiquetteHG, saveFormatBordereau,
   saveBrdGeneral, renderCfgStyles, previewStyleTemp, saveBrdStyles,
   renderCfgSpec, toggleSpecEdit, saveSpecType, addSpecType, removeSpecType,
   renderCfgTemps, saveTempMention, addTemp, removeTemp,
   renderCfgTrans, addTrans, removeTrans,
   renderCfgNotifications, saveNotifConfig, saveNotifProvider, testNotification,
   addNotifEmail, removeNotifEmail, toggleNotifProvider, renderLabModalEmails,
+  openSecretModal, closeSecretModal, saveSecretModal,
 } from './app-config.js';
 
 // Ré-expose tous les exports sur window pour que app.js (script global)
@@ -130,6 +139,7 @@ Object.assign(window, {
   togglePdfDrop, pdfStr, exportPDF,
   toggleHistAlerts, toggleResumeAlerts, loadHistPage, loadHistStats, changeHistPage, onHistSearch,
   openEditEnvoi, closeEditEnvoi, afficherPillsTempEdit, selectionnerTempEdit, setEditGlace,
+  setHorsCorridor, setEditHorsCorridor,
   toggleDeptEdit, updatePillsDeptEdit, saveEditEnvoi, showSuccessModalEdit,
   showNoListModal, cancelNoList, confirmNoList, toggleNoSilp, fetchHsilpPreviewNum, showSuccessModalHsilp,
   renderMonCompte, saveMcPw,
@@ -152,13 +162,13 @@ Object.assign(window, {
   loadHGRSentPage, loadHGRConfPage, loadHGRWaitPage, switchHGRTab, changeHGRPage, renderHGResume,
   loadHGHistPage, loadHGHistStats, changeHGHistPage, onHGHistSearch, renderHGHistorique,
   showHGDetail, openHGFaxModal, closeHGFaxModal, setHgFaxConforme, saveHGFaxConfirm,
-  openEditHGEnvoi, closeHGEditModal, setHgsSGC, setHgeSGC, addHgeList, removeHgeList, renderHgeChips, saveEditHGEnvoi,
+  openEditHGEnvoi, closeHGEditModal, setHgsSGC, setHgeSGC, setHgsHorsCorridor, setHgeHorsCorridor, addHgeList, removeHgeList, renderHgeChips, saveEditHGEnvoi,
   renderCfgHgrappe, renderCfgHgrappeConfirmByNumero, saveHgrappeConfirmByNumero,
   renderHGAlarmsCfg, saveHGAlarms, renderHgrappeLabsToggle, saveHgrappeLabs,
-  renderCfgHgrappeFormat, saveHgrappeFormat,
   renderExtLabsList, toggleExtLabEdit, saveExtLabEdit, addExtLab, toggleExtLabActive,
   // print
-  printBordereauFromEnvoi, printBordereau,
+  printBordereauFromEnvoi, printBordereau, printEtiquette, printEtiquetteEtBordereau,
+  toggleImpMenu: function(btn){var m=btn.nextElementSibling;if(!m)return;var show=m.style.display==='none';document.querySelectorAll('.imp-menu').forEach(function(x){x.style.display='none';});if(show){m.style.display='block';var close=function(e){if(!btn.closest('.imp-grp').contains(e.target)){m.style.display='none';document.removeEventListener('click',close);}};setTimeout(function(){document.addEventListener('click',close);},0);}},
   reprintHGDocsFromEnvoi, printHGDocs,
   // utils
   classesPills, departements,
@@ -188,26 +198,35 @@ Object.assign(window, {
   showCfgTab, openCfgAddModal, closeCfgAddModal, submitCfgAddModal,
   renderCfgModules, toggleModuleLab,
   loadGrappeConfig, saveGrappeCfg, renderCfgGrappe, switchCfgGrappe,
-  saveBranding, saveMessages, saveInterfaceCfg,
+  saveBranding, saveMessages, saveSilpPrintBordereau,
   saveAlarms, saveAlarmR, saveAlarmP,
   renderCfgBadges, livePreviewBadge, resetBadge, saveBadges,
   renderCfgTheme, saveCustomCss,
-  _buildFmtCards, renderCfgFormats, setActiveFormat,
-  renderCfgHsilpFormat, saveHsilpFormat,
+  _buildFmtCards, renderCfgFormatsAll,
+  saveFormatEtiquetteIntra, saveFormatEtiquetteHG, saveFormatBordereau,
   saveBrdGeneral, renderCfgStyles, previewStyleTemp, saveBrdStyles,
   renderCfgSpec, toggleSpecEdit, saveSpecType, addSpecType, removeSpecType,
   renderCfgTemps, saveTempMention, addTemp, removeTemp,
   renderCfgTrans, addTrans, removeTrans,
   renderCfgNotifications, saveNotifConfig, saveNotifProvider, testNotification,
   addNotifEmail, removeNotifEmail, toggleNotifProvider, renderLabModalEmails,
+  openSecretModal, closeSecretModal, saveSecretModal,
   initDashboard,
+  // echantillons
+  isEchantillonsEnabled,
+  updateEchDepartSectionVisibility, updateEchDepartScanVisible, addEchDepart, removeEchDepart, renderEchDepartChips, getEchantillonsDepart, resetEchantillonsDepart,
+  updateEchHgDepartSectionVisibility, updateEchHgDepartScanVisible, addEchHgDepart, removeEchHgDepart, renderEchHgDepartChips, getEchantillonsHgDepart, resetEchantillonsHgDepart,
+  initEchReceptionSection, onEchNbRecuChange, addEchVerif, removeEchVerif, renderEchVerifChips, getEchVerifNcData, resetEchReceptionSection,
+  initEchDepartEdit, addEchDepartEdit, removeEchDepartEdit, renderEchDepartEditChips, getEchantillonsDepartEdit,
   // bons-depart
   isBDEnabled, initBonsDepart, loadBDPage, changeBDPage,
   openCreateBon, bdToggleEnvoi, bdSelectAll, saveCreateBon,
   showBDDetail, saveBDSection, cancelBon, removeEnvoiFromBon, printBon,
   openAddColis, closeAddColis, bdToggleAddEnvoi, saveAddColis,
   renderBonsDepartLabsToggle, saveBonsDepartLabs,
-  bdScanEnvoi,
+  bdScanEnvoi, startCameraScan, stopCameraScan,
+  // tour
+  tourStart, tourNext, tourPrev, tourSkip, tourFinish, tourMaybeAutoStart,
 });
 
 // Vérification de l'infrastructure au démarrage (dev uniquement)

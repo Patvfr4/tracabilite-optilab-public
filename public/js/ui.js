@@ -222,8 +222,9 @@ export function showSuccessModal(num) {
   if (msgEl) msgEl.innerHTML = 'N°&nbsp;<strong>' + escapeHtml(num) + '</strong> enregistré avec succès.';
   var pb = document.getElementById('success-print-btn');
   if (pb) {
-    pb.style.display = window.CFG && window.CFG.printBordereau ? 'flex' : 'none';
-    pb.onclick = function() { closeSuccessModal(); window.printBordereau(); };
+    pb.style.display = 'flex';
+    pb.textContent = 'Imprimer l\'étiquette';
+    pb.onclick = function() { closeSuccessModal(); window.printEtiquette(); };
   }
   document.getElementById('success-modal').style.display = 'flex';
 }
@@ -266,4 +267,62 @@ export function switchAideTab(tab) {
   document.querySelectorAll('.aide-tab-panel').forEach(function(p) {
     p.classList.toggle('gone', p.dataset.tab !== tab);
   });
+  if (tab === 'apropos') loadChangelog();
+}
+
+// ── Journal des versions (CHANGELOG.md) ─────────────────────────────────────────
+
+var _clLoaded = false;
+
+function loadChangelog() {
+  if (_clLoaded) return;
+  var el = document.getElementById('apropos-changelog');
+  if (!el) return;
+  _clLoaded = true;
+  fetch('/CHANGELOG.md', { cache: 'no-cache' })
+    .then(function(r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(function(md) { el.innerHTML = _renderChangelog(md); })
+    .catch(function() {
+      _clLoaded = false;
+      el.innerHTML = '<div class="cl-state">Journal indisponible. '
+        + '<a href="https://github.com/Patvfr4/optilab-envois/blob/main/public/CHANGELOG.md" target="_blank" rel="noopener">Voir sur GitHub</a></div>';
+    });
+}
+
+// Rendu Markdown minimal et sûr, spécialisé pour notre format de changelog.
+// Chaque « ## [BETA x] — date » devient un bloc <details> repliable.
+function _renderChangelog(md) {
+  var inline = function(s) {
+    return escapeHtml(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  };
+  var lines = md.split(/\r?\n/);
+  var out = [];
+  var inList = false, firstVer = true, verOpen = false;
+  var closeList = function() { if (inList) { out.push('</ul>'); inList = false; } };
+  var closeVer  = function() { closeList(); if (verOpen) { out.push('</div></details>'); verOpen = false; } };
+
+  for (var i = 0; i < lines.length; i++) {
+    var ln = lines[i];
+    if (/^##\s+/.test(ln)) {                       // en-tête de version
+      closeVer();
+      var t = ln.replace(/^##\s+/, '').replace(/^\[|\]/g, '');
+      out.push('<details class="cl-ver"' + (firstVer ? ' open' : '') + '><summary>' + inline(t) + '</summary><div class="cl-body">');
+      verOpen = true; firstVer = false;
+    } else if (/^###\s+/.test(ln)) {               // sous-section
+      closeList();
+      out.push('<div class="cl-sec">' + inline(ln.replace(/^###\s+/, '')) + '</div>');
+    } else if (/^[-*]\s+/.test(ln)) {              // puce
+      if (!inList) { out.push('<ul class="cl-list">'); inList = true; }
+      out.push('<li>' + inline(ln.replace(/^[-*]\s+/, '')) + '</li>');
+    } else if (/^#\s+/.test(ln) || /^-{3,}\s*$/.test(ln) || ln.trim() === '') {
+      closeList();                                 // titre principal, séparateur, ligne vide → ignorés
+    } else {
+      closeList();
+      out.push('<p class="cl-p">' + inline(ln) + '</p>');
+    }
+  }
+  closeVer();
+  return out.join('');
 }

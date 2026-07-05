@@ -8,7 +8,7 @@ Application web de gestion et de traçabilité des envois d'échantillons biolog
 
 > Développé par **Patxi VIEL** — CISSS Bas-Saint-Laurent
 
-[![Version](https://img.shields.io/badge/version-BETA%201.9.6-informational?style=flat-square)](https://github.com/Patvfr4/optilab-envois)
+[![Version](https://img.shields.io/badge/version-BETA%201.10.1-informational?style=flat-square)](https://github.com/Patvfr4/optilab-envois)
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare%20Pages-F38020?style=flat-square&logo=cloudflare&logoColor=white)](https://pages.cloudflare.com)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES6-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](https://developer.mozilla.org/fr/docs/Web/JavaScript)
@@ -23,13 +23,10 @@ Application web de gestion et de traçabilité des envois d'échantillons biolog
 2. [Fonctionnalités](#fonctionnalités)
 3. [Captures d'écran](#captures-décran)
 4. [Architecture technique](#architecture-technique)
-5. [Déploiement](#déploiement)
-   - [Prérequis](#prérequis)
-   - [Étape 1 — Supabase](#étape-1--supabase)
-   - [Étape 2 — Cloudflare Pages](#étape-2--cloudflare-pages)
-   - [Étape 3 — Configuration initiale](#étape-3--configuration-initiale)
-   - [Resend (optionnel)](#14-déployer-ledge-function-send-notifications-optionnel)
+5. [Déploiement](#déploiement) — guides pas à pas dans [`docs/deploiement/`](docs/deploiement/)
 6. [Développement local](#développement-local)
+
+> 📖 **Documentation d'architecture & d'audit** (sécurité, base de données, dépendances, liste des fonctions) : [`docs/architecture/`](docs/architecture/)
 
 ---
 
@@ -135,14 +132,42 @@ L'application couvre deux modes d'envoi :
 
 ---
 
+### Gestion des échantillons
+
+> Fonctionnalité activable par laboratoire depuis la configuration.
+
+- Scan des codes-barres d'échantillons sur les envois **sans liste SILP** (intra-grappe et hors-grappe).
+- **Au départ** : saisie/scan des échantillons inclus dans l'envoi (chips ajout/suppression).
+- **À la réception** : champ « Nombre reçu » et scan de vérification, avec **génération automatique d'une non-conformité** en cas d'écart entre les échantillons attendus et reçus.
+- Chips modifiables dans le modal d'édition d'un envoi intra-grappe.
+
+---
+
+### Codes ICR / valeurs pondérées (Workload)
+
+- Référentiel de codes ICR (`70008` Glace sèche, `70009` Transport hors corridor), gérable par les administrateurs.
+- Case **« Transport hors corridor »** dans les formulaires d'envoi intra et hors-grappe, qui attribue automatiquement les codes ICR correspondants.
+- Section dédiée dans le tableau de bord KPI : volumes pondérés par code ICR sur la période.
+
+---
+
+### Parcours de formation guidé
+
+- Visite interactive de l'application au **premier login**, adaptée au rôle de l'utilisateur (technicien, superviseur, administrateur).
+- Rejouable à tout moment depuis **Aide → À propos → « Relancer le tour guidé »**.
+- Progression mémorisée par utilisateur (le tour ne se relance pas automatiquement une fois terminé).
+
+---
+
 ### Notifications par courriel
 
 > Fonctionnalité optionnelle, activable par laboratoire depuis la configuration.
 
-- Envoi automatique d'un courriel au laboratoire expéditeur lorsqu'une **non-conformité** est signalée lors d'une confirmation hors-grappe (en ligne ou par fax).
+- Envoi automatique d'un courriel au laboratoire concerné pour plusieurs types d'événements : **non-conformité** (intra et hors-grappe), envoi **potentiellement perdu**, envoi **en transit trop long** (seuil d'alarme intra), envoi hors-grappe **sans confirmation** au-delà du délai.
+- **Détection et envoi par cron** (`pg_cron`) : la détection des alarmes et l'envoi du lot de courriels sont planifiés côté base de données (reprogrammation quotidienne), sans intervention manuelle.
 - Intégration avec [Resend](https://resend.com) (plan Free : 3 000 courriels / mois).
 - Remplaçable par un relais SMTP institutionnel sans modification du code applicatif.
-- File d'attente interne (`notification_queue`) avec statut de livraison et horodatage.
+- File d'attente interne (`notification_queue`) avec déduplication, statut de livraison et horodatage.
 - Fonction de test d'envoi disponible depuis l'interface d'administration.
 
 ---
@@ -203,8 +228,9 @@ L'enveloppe est **réutilisable** : seul le bordereau imprimé change à chaque 
 - Format de bordereau par défaut.
 - Laboratoires externes (hors-grappe) avec sous-laboratoires.
 - Bons de départ : activation par laboratoire.
-- **Modules par laboratoire** : activation individuelle du mode Hors-grappe, des Bons de départ et des Notifications courriel.
+- **Modules par laboratoire** : activation individuelle du mode Hors-grappe, des Bons de départ, des Notifications courriel et de la Gestion des échantillons.
 - **Notifications** : adresse de destination, configuration de l'expéditeur Resend par grappe.
+- **Codes ICR** : gestion du référentiel des valeurs pondérées (Workload).
 
 ---
 
@@ -391,245 +417,14 @@ L'enveloppe est **réutilisable** : seul le bordereau imprimé change à chaque 
 
 ## Déploiement
 
-### Prérequis
+Le déploiement complet est documenté **pas à pas** dans **[docs/deploiement/](docs/deploiement/)** :
 
-- Un compte [Supabase](https://supabase.com) (plan Free suffisant).
-- Un compte [Cloudflare](https://cloudflare.com) (plan Free).
-- Le dépôt Git hébergé sur GitHub (ou GitLab / Bitbucket).
+- **[Vue d'ensemble & prérequis](docs/deploiement/README.md)**
+- **[01 — Supabase](docs/deploiement/01-supabase.md)** — projet, schéma, migrations, Auth, Realtime, Edge Functions, secrets, cron
+- **[02 — Cloudflare Pages](docs/deploiement/02-cloudflare-pages.md)** — hébergement, `_headers` / `_redirects`, domaines, Turnstile
+- **[03 — Resend](docs/deploiement/03-resend.md)** — domaine expéditeur, clé API, notifications par courriel
 
----
-
-### Étape 1 — Supabase
-
-#### 1.1 Créer le projet
-
-1. Connectez-vous à [app.supabase.com](https://app.supabase.com).
-2. Cliquez sur **New project**.
-3. Renseignez :
-   - **Name** : `optilab-envois`
-   - **Database Password** : générez un mot de passe fort et conservez-le.
-   - **Region** : **Canada (Central)** — requis pour la conformité avec la Loi 25.
-4. Cliquez sur **Create new project** et attendez ~2 minutes.
-
-#### 1.2 Créer le schéma de base de données
-
-1. Dans le menu gauche, allez dans **SQL Editor**.
-2. Cliquez sur **New query**.
-3. Copiez-collez l'intégralité du fichier `supabase/schema.sql`.
-4. Cliquez sur **Run** (▶) et vérifiez l'absence d'erreurs.
-
-#### 1.3 Déployer l'Edge Function
-
-L'Edge Function `manage-user` est requise pour la création et la gestion des utilisateurs. Sans ce déploiement, toute tentative de création d'utilisateur échoue avec une erreur CORS.
-
-**a) Installer la CLI Supabase**
-
-```bash
-npm install -g supabase
-```
-
-Vérifiez l'installation :
-```bash
-supabase --version
-```
-
-**b) S'authentifier**
-
-```bash
-supabase login
-```
-
-Un lien s'ouvre dans le navigateur — connectez-vous avec le compte Supabase propriétaire du projet.
-
-**c) Lier le projet local au projet Supabase**
-
-```bash
-supabase link --project-ref VOTRE_PROJECT_REF
-```
-
-Le `project-ref` est la partie alphanumérique dans l'URL du dashboard :
-`https://supabase.com/dashboard/project/`**`uuhslyvrlfuoamuvgobc`**
-
-La CLI demande le **Database Password** défini à la création du projet.
-
-**d) Variables d'environnement**
-
-Aucune configuration manuelle requise. Supabase injecte automatiquement dans toutes les Edge Functions :
-
-| Variable | Contenu |
-|---|---|
-| `SUPABASE_URL` | URL du projet |
-| `SUPABASE_ANON_KEY` | Clé anonyme publique |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clé service role (admin) |
-
-La fonction les lit directement via `Deno.env.get(...)` sans qu'aucun secret ne soit à définir.
-
-**e) Déployer**
-
-```bash
-supabase functions deploy manage-user --no-verify-jwt
-```
-
-> Le flag `--no-verify-jwt` est nécessaire ici car la vérification du token JWT est gérée manuellement dans la fonction (via `userClient.auth.getUser()`), pas par la plateforme.
-
-**f) Vérifier le déploiement**
-
-Dans le dashboard : **Edge Functions** — la fonction `manage-user` doit apparaître avec le statut **Active**.
-
-Vous pouvez aussi tester depuis le terminal :
-
-```bash
-supabase functions list
-```
-
-**Redéployer après une modification**
-
-```bash
-supabase functions deploy manage-user --no-verify-jwt
-```
-
-#### 1.4 Déployer l'Edge Function `send-notifications` (optionnel)
-
-Requise uniquement si le module **Notifications courriel** est activé pour au moins un laboratoire.
-
-```bash
-supabase functions deploy send-notifications
-supabase functions deploy test-notification
-```
-
-Ajoutez ensuite la clé API Resend comme secret Supabase :
-
-```bash
-supabase secrets set RESEND_API_KEY=re_xxxxxxxxxxxx
-```
-
-> Sans ce secret, les appels à `send-notifications` échouent silencieusement (la file `notification_queue` conserve les entrées avec `statut = 'error'`).
-
----
-
-**Alternative : déploiement depuis le dashboard (sans CLI)**
-
-Si vous ne souhaitez pas utiliser la CLI, vous pouvez créer et déployer la fonction directement depuis le dashboard Supabase.
-
-**1. Créer la fonction**
-
-1. Dans le menu gauche, cliquez sur **Edge Functions**.
-2. Cliquez sur **Deploy a new function**.
-3. Renseignez le nom : `manage-user` (exactement, sans majuscules ni espaces).
-4. Dans l'éditeur de code, **supprimez le contenu par défaut** et collez l'intégralité du fichier `supabase/functions/manage-user/index.ts`.
-5. Décochez l'option **Verify JWT** — la vérification est gérée manuellement dans la fonction.
-6. Cliquez sur **Deploy**.
-
-**2. Vérifier**
-
-La fonction apparaît dans la liste **Edge Functions** avec le statut **Active**. L'URL affichée (`https://xxxx.supabase.co/functions/v1/manage-user`) doit correspondre à celle utilisée dans `public/js/config.js`.
-
-#### 1.4 Récupérer les clés d'API
-
-Dans **Settings > API** :
-- **Project URL** : `https://xxxxxxxxxxxx.supabase.co`
-- **anon public** : la clé anonyme publique (commence par `eyJ…`)
-
-> La clé `anon` est publique par conception. La sécurité des données repose sur les politiques RLS (Row Level Security) définies dans le schéma SQL.
-
-#### 1.5 Créer le premier compte administrateur
-
-1. Dans **Authentication > Users**, cliquez sur **Add user > Create new user**.
-2. Renseignez une adresse e-mail (format libre) et un mot de passe temporaire.
-3. Notez l'**UUID** affiché dans la liste.
-4. Dans **SQL Editor**, exécutez :
-   ```sql
-   INSERT INTO profiles (id, employee_id, nom, role, active, must_change_password)
-   VALUES (
-     'UUID_COPIÉ_ICI',
-     'admin',
-     'Admin Système',
-     'admin',
-     true,
-     true
-   );
-   ```
-
-> Le champ `employee_id` est le numéro d'employé utilisé pour se connecter à l'application (pas l'e-mail).
-
----
-
-### Étape 2 — Cloudflare Pages
-
-#### 2.1 Connecter le dépôt
-
-1. Dans [dash.cloudflare.com](https://dash.cloudflare.com), allez dans **Workers & Pages > Create application > Pages**.
-2. Cliquez sur **Connect to Git** et autorisez l'accès au dépôt.
-
-#### 2.2 Configurer le build
-
-| Paramètre | Valeur |
-|-----------|--------|
-| Framework preset | None |
-| Build command | *(laisser vide)* |
-| Build output directory | `public` |
-
-#### 2.3 Déployer
-
-Cliquez sur **Save and Deploy**. Un domaine `*.pages.dev` est attribué automatiquement.
-
-#### 2.4 Domaine personnalisé (optionnel)
-
-Dans l'onglet **Custom domains**, cliquez sur **Set up a custom domain** et suivez les instructions DNS.
-
-#### 2.5 Configurer les clés Supabase
-
-Ouvrez `public/js/config.js` et renseignez vos domaines et clés :
-
-```javascript
-var CONFIGS = {
-  'votre-domaine.pages.dev': {
-    supabaseUrl: 'https://VOTRE_PROJECT.supabase.co',
-    supabaseKey: 'VOTRE_CLE_ANON',
-  },
-  'localhost': {
-    supabaseUrl: 'https://VOTRE_PROJECT_DEV.supabase.co',
-    supabaseKey: 'VOTRE_CLE_ANON_DEV',
-  },
-};
-```
-
-Validez et poussez — Cloudflare Pages redéploie automatiquement.
-
----
-
-### Étape 3 — Configuration initiale
-
-Une fois connecté en tant qu'administrateur :
-
-#### 3.1 Laboratoires du réseau
-
-**Configuration > Laboratoires** — pour chaque établissement :
-- Nom complet (ex. `AA000 - Hôpital régional de Rimouski`)
-- Adresse complète (ligne 1, ligne 2, ville, province, code postal, pays)
-- Numéros de fax par département (Biochimie/Hémato, Microbiologie, Pathologie, Général)
-- Réfrigérant par défaut (Glace sèche / Sachet / Demander à chaque fois)
-
-#### 3.2 Laboratoires externes (hors-grappe)
-
-**Configuration > Hors-grappe** — pour chaque destinataire externe :
-- Nom, adresse complète
-- Sous-laboratoires si applicable (ex. CHU Québec → Immunosupprimés)
-- Texte d'étiquette personnalisé pour le bordereau
-
-#### 3.3 Paramètres généraux
-
-- **Configuration > Général** : nom, sous-titre de l'application.
-- **Configuration > Messages** : message d'accueil en Markdown.
-- **Configuration > Alarmes** : seuil transit trop long (heures) et potentiellement perdu (jours).
-- **Configuration > Transporteurs** : liste des transporteurs disponibles.
-- **Configuration > Températures** : températures et comportement réfrigérant.
-
-#### 3.4 Créer les comptes utilisateurs
-
-**Utilisateurs** — pour chaque technicien / superviseur :
-- N° employé, nom, laboratoire, rôle.
-- Mot de passe temporaire → l'utilisateur change à la première connexion.
+Pour l'architecture et la documentation d'audit (sécurité, base de données, dépendances, liste des fonctions), voir **[docs/architecture/](docs/architecture/)**.
 
 ---
 
@@ -645,6 +440,12 @@ npx live-server public --port=3000
 ```
 
 Assurez-vous que `localhost` est configuré dans `public/js/config.js` avec les clés Supabase de l'environnement de développement.
+
+---
+
+## Développement assisté par IA
+
+Ce projet a été développé avec l'assistance d'une **intelligence artificielle** (assistant de codage), notamment pour l'**optimisation du code**, le **renforcement de la sécurité** et la **rédaction de la documentation**. Toutes les contributions générées ont fait l'objet d'une **vérification manuelle** par le développeur avant intégration.
 
 ---
 

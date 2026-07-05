@@ -1,7 +1,7 @@
 # Traçabilité OPTILAB — Estimation de capacité Supabase Free
 
-> Généré le 2026-04-30 — refondu le 2026-05-09 (BETA 1.9.6) par Claude (IA).
-> Le code source, la BDD et le contexte général de fonctionnement ont été fournis.
+> Généré le 2026-04-30 — refondu le 2026-05-09 (BETA 1.9.6).
+> Basé sur le code source, la structure de la BDD et le contexte général de fonctionnement.
 > Les variables de volume s'appuient sur les données réelles du CH Rimouski (mars–avril 2026).
 > **Ces résultats sont purement théoriques.**
 

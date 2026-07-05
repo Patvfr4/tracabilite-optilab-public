@@ -38,7 +38,7 @@ export function afficherLegende(elId,arr){var leg=document.getElementById(elId);
 export function celluleTransit(e){if(e.statut==='En attente')return'<span class="tok">—</span>';var h=heuresTransit(e);var svg='<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2L1.5 13h13L8 2z"/><path d="M8 7v2.5M8 11v.5"/></svg>';if(estAlarmePerdu(e))return'<span class="talarm talarm-lost">'+svg+formatDuree(h)+'</span>';if(estAlarmeRetard(e)||estArriveeRetard(e))return'<span class="talarm">'+svg+formatDuree(h)+'</span>';return'<span class="'+(h!==null&&h>state.CFG.alarmR*0.7?'twarn':'tok')+'">'+formatDuree(h)+'</span>';}
 
 // ── Chargement envois intra-grappe ────────────────────────────────────────────
-export function _mapEnvoi(row){return{id:row.id,numero:row.numero,numerosSilp:row.numeros_silp||[],exp:row.exp_lab?row.exp_lab.name:'',dest:row.dest_lab?row.dest_lab.name:'',expId:row.exp_labo_id,destId:row.dest_labo_id,expAdresse:row.exp_lab?row.exp_lab.adresse||'':'',expAdresse2:row.exp_lab?row.exp_lab.adresse2||'':'',expVille:row.exp_lab?row.exp_lab.ville||'':'',expProvince:row.exp_lab?row.exp_lab.province||'':'',expCodePostal:row.exp_lab?row.exp_lab.code_postal||'':'',expPays:row.exp_lab?row.exp_lab.pays||'':'',expTel:row.exp_lab?row.exp_lab.telephone||'':'',destAdresse:row.dest_lab?row.dest_lab.adresse||'':'',destAdresse2:row.dest_lab?row.dest_lab.adresse2||'':'',destVille:row.dest_lab?row.dest_lab.ville||'':'',destProvince:row.dest_lab?row.dest_lab.province||'':'',destCodePostal:row.dest_lab?row.dest_lab.code_postal||'':'',destPays:row.dest_lab?row.dest_lab.pays||'':'',destTel:row.dest_lab?row.dest_lab.telephone||'':'',temp:row.temperature,transporteur:row.transporteur,tubes:row.nb_echantillons,departements:row.departements||[],statut:row.statut,notes:row.notes||'',creePar:row.cree_par_nom||'',creeParId:row.cree_par_id||null,recepPar:row.recep_par_nom||'',recepObs:row.recep_obs||'',tsEnvoi:row.ts_envoi,tsRecep:row.ts_recep,typeSpecimen:row.type_specimen||'exempt',glaceSeche:row.glace_seche||false,annuleAt:row.annule_at||null,annuleParNom:row.annule_par_nom||'',annuleNote:row.annule_note||''};}
+export function _mapEnvoi(row){return{id:row.id,numero:row.numero,numerosSilp:row.numeros_silp||[],exp:row.exp_lab?row.exp_lab.name:'',dest:row.dest_lab?row.dest_lab.name:'',expId:row.exp_labo_id,destId:row.dest_labo_id,expAdresse:row.exp_lab?row.exp_lab.adresse||'':'',expAdresse2:row.exp_lab?row.exp_lab.adresse2||'':'',expVille:row.exp_lab?row.exp_lab.ville||'':'',expProvince:row.exp_lab?row.exp_lab.province||'':'',expCodePostal:row.exp_lab?row.exp_lab.code_postal||'':'',expPays:row.exp_lab?row.exp_lab.pays||'':'',expTel:row.exp_lab?row.exp_lab.telephone||'':'',destAdresse:row.dest_lab?row.dest_lab.adresse||'':'',destAdresse2:row.dest_lab?row.dest_lab.adresse2||'':'',destVille:row.dest_lab?row.dest_lab.ville||'':'',destProvince:row.dest_lab?row.dest_lab.province||'':'',destCodePostal:row.dest_lab?row.dest_lab.code_postal||'':'',destPays:row.dest_lab?row.dest_lab.pays||'':'',destTel:row.dest_lab?row.dest_lab.telephone||'':'',temp:row.temperature,transporteur:row.transporteur,tubes:row.nb_echantillons,departements:row.departements||[],statut:row.statut,notes:row.notes||'',creePar:row.cree_par_nom||'',creeParId:row.cree_par_id||null,recepPar:row.recep_par_nom||'',recepObs:row.recep_obs||'',tsEnvoi:row.ts_envoi,tsRecep:row.ts_recep,typeSpecimen:row.type_specimen||'exempt',glaceSeche:row.glace_seche||false,horsCorridorChoisi:row.hors_corridor||false,codesIcr:row.codes_icr||[],annuleAt:row.annule_at||null,annuleParNom:row.annule_par_nom||'',annuleNote:row.annule_note||'',echantillonsDepart:row.echantillons_depart||[],echantillonsReception:row.echantillons_reception||[]};}
 export async function loadEnvois(){
   try{
     var sel='*,exp_lab:exp_labo_id(name,adresse,adresse2,ville,province,code_postal,pays,telephone),dest_lab:dest_labo_id(name,adresse,adresse2,ville,province,code_postal,pays,telephone)';
@@ -92,7 +92,8 @@ async function _doSaveEnvoiHsilp(_bdOn){
   var tubes=parseInt(document.getElementById('ntub').value)||null;
   var specEl=document.getElementById('tspec');var spec=specEl?specEl.value:'exempt';
   var _bdStat2=_bdOn?'En attente':'En transit';
-  var r=await sbCall(state.sb.rpc('create_envoi_hsilp',{p_exp_labo_id:state.activeLaboId,p_dest_labo_id:destId,p_temperature:state.termeRecherche,p_transporteur:_bdOn?(tr||null):tr,p_nb_echantillons:tubes,p_departements:state.departementsActifs.slice(),p_notes:document.getElementById('notes').value,p_cree_par_id:state.currentUser.id,p_cree_par_nom:state.currentUser.nom,p_type_specimen:spec,p_glace_seche:state.refrigerantChoisi===true,p_statut:_bdStat2}), 'serr');
+  var _echDep=window.getEchantillonsDepart?window.getEchantillonsDepart():[];
+  var r=await sbCall(state.sb.rpc('create_envoi_hsilp',{p_exp_labo_id:state.activeLaboId,p_dest_labo_id:destId,p_temperature:state.termeRecherche,p_transporteur:_bdOn?(tr||null):tr,p_nb_echantillons:tubes,p_departements:state.departementsActifs.slice(),p_notes:document.getElementById('notes').value,p_cree_par_id:state.currentUser.id,p_cree_par_nom:state.currentUser.nom,p_type_specimen:spec,p_glace_seche:state.refrigerantChoisi===true,p_statut:_bdStat2,p_echantillons_depart:_echDep,p_hors_corridor:state.horsCorridorChoisi===true}), 'serr');
   if(r.error)return;
   var num=r.data;
   var destLab=state.laboratoires.find(function(l){return l.id===destId;})||{};
@@ -105,13 +106,13 @@ export function resetForm(){
   document.getElementById('ldest').value='';document.getElementById('ldest-input').value='';window.updateDestAddr('');
   var _ni=document.getElementById('nlist-input');if(_ni)_ni.value='';document.getElementById('notes').value='';document.getElementById('trans').value='';document.getElementById('ntub').value='';
   _silpChips=[];renderSilpChips();var _ne=document.getElementById('nlist-err');if(_ne)_ne.classList.remove('show');
-  state.termeRecherche='';state.departementsActifs=[];state.typeSpecimen='exempt';state.refrigerantChoisi=false;
+  state.termeRecherche='';state.departementsActifs=[];state.typeSpecimen='exempt';state.refrigerantChoisi=false;state.horsCorridorChoisi=false;var _hcCb=document.getElementById('hors-corridor-cb');if(_hcCb)_hcCb.checked=false;
   var ts=document.getElementById('tspec');if(ts)ts.value='exempt';
   var gs=document.getElementById('glace-section');if(gs)gs.style.display='none';
   document.querySelectorAll('.tpill').forEach(function(el){el.className='tpill';});
   var cm={BIOCHIMIE:'dp-bio',HEMATOLOGIE:'dp-hema',MICROBIOLOGIE:'dp-micro',PATHOLOGIE:'dp-patho'};
   departements.forEach(function(x){document.getElementById('dp-'+x.id).className='dpill '+cm[x.id];});
-  state.sansSilp=false;var cb=document.getElementById('no-silp-cb');if(cb)cb.checked=false;
+  state.sansSilp=false;var cb=document.getElementById('no-silp-cb');if(cb)cb.checked=false;if(window.resetEchantillonsDepart)window.resetEchantillonsDepart();
   var w=document.getElementById('nlist-wrap'),warn=document.getElementById('no-silp-warn'),nw=document.getElementById('no-silp-num-wrap');
   if(w)w.style.display='';if(warn)warn.style.display='none';if(nw)nw.style.display='none';
 }
@@ -167,6 +168,7 @@ function _afficherResultatReception(e){
     (al?'<div class="irow"><span style="color:var(--te)">⚠ Transit</span><span style="color:var(--te)">'+formatDuree(h)+' — dépasse '+state.CFG.alarmR+' h</span></div>':'')+
     (e.notes?'<div class="irow"><span>Notes envoi</span><span>'+escapeHtml(e.notes)+'</span></div>':'');
   document.getElementById('rresult').style.display='block';
+  if(window.initEchReceptionSection)window.initEchReceptionSection(e);
 }
 function _showSilpMultipleModal(envois){
   var m=document.getElementById('silp-match-modal');if(!m)return;
@@ -181,7 +183,13 @@ function _showSilpMultipleModal(envois){
 }
 export async function confirmer(){
   if(state.indexLigne===-1)return;var e=state.envois[state.indexLigne];
-  var r=await sbCall(state.sb.from('envois').update({statut:'Reçu',ts_recep:new Date().toISOString(),recep_par_nom:state.currentUser.nom,recep_obs:document.getElementById('robs').value}).eq('id',e.id).eq('statut','En transit').select('id'), 'rerr');
+  var obsBase=document.getElementById('robs').value;
+  var _ncData=window.getEchVerifNcData?window.getEchVerifNcData():null;
+  var obs=_ncData?(obsBase?obsBase+'\n'+_ncData.commentaire:_ncData.commentaire):obsBase;
+  var echRecep=_ncData?_ncData.reception:[];
+  var updatePayload={statut:'Reçu',ts_recep:new Date().toISOString(),recep_par_nom:state.currentUser.nom,recep_obs:obs};
+  if(echRecep.length)updatePayload.echantillons_reception=echRecep;
+  var r=await sbCall(state.sb.from('envois').update(updatePayload).eq('id',e.id).eq('statut','En transit').select('id'), 'rerr');
   if(r.error)return;
   if(!r.data||!r.data.length){await loadEnvois();document.getElementById('rresult').style.display='none';state.indexLigne=-1;notifier('rerr','Cet envoi a déjà été modifié par quelqu\'un d\'autre. La liste a été actualisée.','e');return;}
 
@@ -201,6 +209,7 @@ export async function confirmer(){
     rn.value='';
     state.indexLigne=-1;
     rn.focus();
+    if(window.resetEchReceptionSection)window.resetEchReceptionSection();
   }, 600);
 }
 function _queueNotif(type,e,extra){
@@ -280,11 +289,25 @@ export async function showGMod(id){
   var footer=document.getElementById('gmod-footer');footer.innerHTML='';
   var canDeclare=estGrappe()||(state.currentUser.role==='superviseur_labo'&&(e.expId===state.activeLaboId||e.destId===state.activeLaboId));
   var isHsilpE=!e.numerosSilp||e.numerosSilp.length===0;
-  var canPrint=(isHsilpE||state.CFG.printBordereau)&&e.expId===state.activeLaboId&&(e.statut==='En transit'||e.statut==='En attente');
+  var canPrint=e.expId===state.activeLaboId&&(e.statut==='En transit'||e.statut==='En attente');
   var _isResponsable=state.currentUser.labMemberships&&state.currentUser.labMemberships.some(function(m){return m.labo_id===e.expId&&m.lab_role==='responsable';});
   var canModify=!e.annuleAt&&e.statut!=='Reçu'&&e.statut!=='Perdu'&&e.statut!=='Problème'&&(e.creeParId===state.currentUser.id||estGrappe()||(estSuperviseur()&&e.expId===state.activeLaboId)||_isResponsable);
   var btns=[];
-  if(canPrint)btns.push('<button class="bsm bsms" style="display:inline-flex;align-items:center;gap:5px" onclick="printBordereauFromEnvoi(\''+e.id+'\')"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6H2a1 1 0 00-1 1v5a1 1 0 001 1h12a1 1 0 001-1V7a1 1 0 00-1-1h-2"/><rect x="4" y="1" width="8" height="7" rx="1"/><path d="M4 11h8v4H4z"/></svg>Imprimer le bordereau</button>');
+  var _psvg='<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6H2a1 1 0 00-1 1v5a1 1 0 001 1h12a1 1 0 001-1V7a1 1 0 00-1-1h-2"/><rect x="4" y="1" width="8" height="7" rx="1"/><path d="M4 11h8v4H4z"/></svg>';
+  if(canPrint){
+    var _pLbl=isHsilpE?'Étiquette + bordereau':'Étiquette';
+    var _pMode=isHsilpE?'les_deux':'etiquette';
+    var _pDropExtra=isHsilpE
+      ?'<button class="imp-item" onclick="printBordereauFromEnvoi(\''+e.id+'\',\'etiquette\');this.closest(\'.imp-menu\').style.display=\'none\'">Étiquette seule</button>'
+       +'<button class="imp-item" onclick="printBordereauFromEnvoi(\''+e.id+'\',\'bordereau\');this.closest(\'.imp-menu\').style.display=\'none\'">Bordereau seul</button>'
+      :(state.CFG.silpPrintBordereau?'<button class="imp-item" onclick="printBordereauFromEnvoi(\''+e.id+'\',\'les_deux\');this.closest(\'.imp-menu\').style.display=\'none\'">Étiquette + bordereau</button>':'')
+       +'<button class="imp-item" onclick="printBordereauFromEnvoi(\''+e.id+'\',\'bordereau\');this.closest(\'.imp-menu\').style.display=\'none\'">Bordereau seul</button>';
+    btns.push('<div class="imp-grp" style="position:relative;display:inline-flex;gap:0">'
+      +'<button class="bsm bsms" style="display:inline-flex;align-items:center;gap:5px;border-radius:4px 0 0 4px" onclick="printBordereauFromEnvoi(\''+e.id+'\',\''+_pMode+'\')">'+_psvg+_pLbl+'</button>'
+      +'<button class="bsm bsms" style="padding:0 5px;border-left:1px solid rgba(0,0,0,.18);border-radius:0 4px 4px 0" onclick="toggleImpMenu(this)">▾</button>'
+      +'<div class="imp-menu" style="display:none;position:absolute;top:100%;left:0;background:white;border:1px solid #ddd;border-radius:4px;z-index:200;min-width:170px;box-shadow:0 2px 8px rgba(0,0,0,.15);margin-top:2px">'+_pDropExtra+'</div>'
+      +'</div>');
+  }
   if(canModify)btns.push('<button class="bsm bsmi" style="display:inline-flex;align-items:center;gap:5px" onclick="openEditEnvoi(\''+e.id+'\')"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3-9 9H2v-3l9-9z"/><path d="M9 4l3 3"/></svg>Modifier l\'envoi</button>');
   if(canDeclare&&e.statut!=='Reçu'&&e.statut!=='Perdu'&&e.statut!=='Problème')btns.push('<button class="bsm bsmd" style="display:inline-flex;align-items:center;gap:5px" onclick="declarerPerdu(\''+e.id+'\')"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3M8 10v1"/></svg>Déclarer perdu</button>');
   if(btns.length)footer.innerHTML='<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--b3);display:flex;justify-content:flex-end;gap:8px">'+btns.join('')+'</div>';
@@ -393,7 +416,10 @@ document.addEventListener('click',function(){var m=document.getElementById('pdf-
 export function pdfStr(s){if(!s)return'';return String(s).replace(/−/g,'-').replace(/–/g,'-').replace(/—/g,'-').replace(/[^\x00-\xFF]/g,'?');}
 export async function exportPDF(orient){
   document.getElementById('pdf-drop-menu').classList.remove('open');
-  if(!window.jspdf||!window.jspdf.jsPDF){alert('Librairie PDF non disponible.');return;}
+  if(!window.jspdf){
+    await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js');
+  }
   var laboId=estGrappe()?document.getElementById('rls').value:state.activeLaboId;
   var laboName=(state.laboratoires.find(function(l){return l.id===laboId;})||{name:''}).name;
   var fv=document.getElementById('pfrom').value,tv=document.getElementById('pto').value,fd=document.getElementById('rdept').value;
@@ -461,7 +487,7 @@ export async function loadHistPage(page){
   var q_str=document.getElementById('search').value.trim().toLowerCase();
   var fs_val=document.getElementById('fstat').value,fdept=document.getElementById('fdept').value,ftrans=document.getElementById('ftrans').value,hfv=document.getElementById('hfrom').value,htv=document.getElementById('hto').value;
   function applyCommonFilters(q){if(hfv)q=q.gte('ts_envoi',hfv+'T00:00:00');if(htv)q=q.lte('ts_envoi',htv+'T23:59:59');if(fdept)q=q.contains('departements',[fdept]);if(ftrans)q=q.eq('transporteur',ftrans);if(q_str){var mids=state.laboratoires.filter(function(l){return l.name.toLowerCase().includes(q_str);}).map(function(l){return l.id;});var op=['numero.ilike.%'+q_str+'%','transporteur.ilike.%'+q_str+'%','cree_par_nom.ilike.%'+q_str+'%','recep_par_nom.ilike.%'+q_str+'%'];if(mids.length){op.push('exp_labo_id.in.('+mids.join(',')+')');op.push('dest_labo_id.in.('+mids.join(',')+')'); }q=q.or(op.join(','));}return q;}
-  function renderItems(items,total,hasMore){var countEl=document.getElementById('hist-count');if(countEl)countEl.textContent=total+(_histAlerts?' alerte'+(total!==1?'s':'')+' trouvée'+(total!==1?'s':''):' résultat'+(total!==1?'s':''));document.getElementById('tbody').innerHTML=items.map(function(e){var _dispNum=e.numerosSilp&&e.numerosSilp.length?escapeHtml(e.numerosSilp[0])+(e.numerosSilp.length>1?' <span style="font-size:9px;background:var(--b3);color:var(--t2);border-radius:3px;padding:1px 4px">+'+( e.numerosSilp.length-1)+'</span>':''):'<span style="font-size:10px;color:var(--t3)">'+escapeHtml(e.numero)+'</span>';return'<tr class="'+classeLigne(e)+'" style="cursor:pointer" onclick="showGMod(\''+e.id+'\')"><td style="color:var(--ti);font-family:var(--fm);font-size:11px">'+_dispNum+'</td><td>'+escapeHtml(e.exp)+'</td><td>'+escapeHtml(e.dest)+'</td><td>'+departementsHtml(e.departements)+'</td><td>'+libelleTempCourt(e.temp)+'</td><td>'+escapeHtml(e.transporteur)+'</td><td>'+(e.tubes||'—')+'</td><td><span class="badge '+classeBadge(e.statut)+'">'+escapeHtml(e.statut)+'</span></td><td style="font-size:11px;color:var(--t2)">'+formatDateTime(e.tsEnvoi)+'</td><td>'+celluleTransit(e)+'</td></tr>';}).join('');afficherLegende('htable-legend',items);var pgEl=document.getElementById('hist-pager');if(pgEl){pgEl.style.display=total>10?'flex':'none';document.getElementById('hist-prev').disabled=page===0;document.getElementById('hist-next').disabled=!hasMore;document.getElementById('hist-page-info').textContent='Page '+(page+1)+' / '+Math.ceil(total/10)||1;}}
+  function renderItems(items,total,hasMore){var countEl=document.getElementById('hist-count');if(countEl)countEl.textContent=total+(_histAlerts?' alerte'+(total!==1?'s':'')+' trouvée'+(total!==1?'s':''):' résultat'+(total!==1?'s':''));document.getElementById('tbody').innerHTML=items.map(function(e){var _dispNum=e.numerosSilp&&e.numerosSilp.length?escapeHtml(e.numerosSilp[0])+(e.numerosSilp.length>1?' <span style="font-size:9px;background:var(--b3);color:var(--t2);border-radius:3px;padding:1px 4px">+'+( e.numerosSilp.length-1)+'</span>':''):'<span style="font-size:10px;color:var(--t3)">'+escapeHtml(e.numero)+'</span>';return'<tr class="'+classeLigne(e)+'" style="cursor:pointer" onclick="showGMod(\''+e.id+'\')"><td style="color:var(--ti);font-family:var(--fm);font-size:11px">'+_dispNum+'</td><td>'+escapeHtml(e.exp)+'</td><td>'+escapeHtml(e.dest)+'</td><td>'+departementsHtml(e.departements)+'</td><td>'+libelleTempCourt(e.temp)+'</td><td>'+escapeHtml(e.transporteur)+'</td><td>'+(e.tubes||'—')+'</td><td><span class="badge '+classeBadge(e.statut)+'">'+escapeHtml(e.statut)+'</span></td><td style="font-size:11px;color:var(--t2)">'+formatDateTime(e.tsEnvoi)+'</td><td>'+celluleTransit(e)+'</td></tr>';}).join('');afficherLegende('htable-legend',items);var _hte=document.getElementById('hist-empty'),_htw=document.getElementById('tbody').closest('.sticky-table');if(items.length){if(_htw)_htw.classList.remove('gone');if(_hte)_hte.classList.add('gone');}else{if(_htw)_htw.classList.add('gone');if(_hte){_hte.classList.remove('gone');_hte.innerHTML='<div class="empty-state"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg><p>Aucun envoi trouvé</p><span>Modifiez les filtres ou la période de recherche.</span></div>';}}var pgEl=document.getElementById('hist-pager');if(pgEl){pgEl.style.display=total>10?'flex':'none';document.getElementById('hist-prev').disabled=page===0;document.getElementById('hist-next').disabled=!hasMore;document.getElementById('hist-page-info').textContent='Page '+(page+1)+' / '+Math.ceil(total/10)||1;}}
   if(_histAlerts){
     if(page===0){var _ac=new Date(Date.now()-state.CFG.alarmR*3600*1000).toISOString();var q=state.sb.from('envois').select('id,numero,numeros_silp,exp_labo_id,dest_labo_id,departements,temperature,transporteur,nb_echantillons,statut,ts_envoi,ts_recep,cree_par_nom,recep_par_nom,exp_lab:exp_labo_id(name),dest_lab:dest_labo_id(name)').or('statut.eq.Perdu,statut.eq.Problème,statut.eq.Reçu,and(statut.eq.En transit,ts_envoi.lt.'+_ac+')');q=applyCommonFilters(q);q=q.is('annule_at',null).order('ts_envoi',{ascending:false}).limit(1000);var r=await q;if(r.error)return;_histAlertData=(r.data||[]).map(function(row){return _mapEnvoi(row);}).filter(estAlerte).sort(function(a,b){return new Date(b.tsEnvoi)-new Date(a.tsEnvoi);});}
     var total=_histAlertData.length;renderItems(_histAlertData.slice(page*10,(page+1)*10),total,(page+1)*10<total);
@@ -487,7 +513,7 @@ export async function openEditEnvoi(id){
   state.CFG.bordereau.specTypes.forEach(function(st){var o=document.createElement('option');o.value=st.id;o.textContent=st.label;es.appendChild(o);});es.value=e.typeSpecimen||'exempt';
   document.getElementById('e-ntub').value=e.tubes||'';document.getElementById('e-notes').value=e.notes||'';
   state.editTemperature=e.temp;afficherPillsTempEdit();
-  state.editRefrigerant=e.glaceSeche||false;
+  state.editRefrigerant=e.glaceSeche||false;state.editHorsCorridor=e.horsCorridorChoisi||false;var _eCb=document.getElementById('e-hors-corridor-cb');if(_eCb)_eCb.checked=state.editHorsCorridor;
   var tCfg=state.CFG.temperatures.find(function(t){return t.label===e.temp;});
   var gs=document.getElementById('e-glace-section');
   if(gs){if(tCfg&&tCfg.ask_glace){gs.style.display='';setEditGlace(e.glaceSeche);}else{gs.style.display='none';}}
@@ -496,7 +522,7 @@ export async function openEditEnvoi(id){
   var _delBtn=document.getElementById('e-del-btn'),_saveBtn=document.getElementById('e-save-btn');
   if(_delBtn)_delBtn.style.display='none';
   if(_saveBtn){_saveBtn.disabled=e.statut==='En transit'&&_expBdOn;_saveBtn.style.opacity=e.statut==='En transit'&&_expBdOn?'0.5':'1';}
-  closeGMod();document.getElementById('edit-envoi-modal').style.display='flex';
+  closeGMod();document.getElementById('edit-envoi-modal').style.display='flex';if(window.initEchDepartEdit)window.initEchDepartEdit(e);
   var _inActiveBon=false;
   if(e.statut==='En transit'&&_expBdOn){
     var rLinks=await state.sb.from('bons_depart_envois').select('bon_id').eq('envoi_id',id);
@@ -532,6 +558,9 @@ export function selectionnerTempEdit(lbl,pc){
   var gs=document.getElementById('e-glace-section');
   if(gs){if(tCfg&&tCfg.ask_glace){gs.style.display='';state.editRefrigerant=null;}else{gs.style.display='none';state.editRefrigerant=false;}}
 }
+export function setHorsCorridor(val){ state.horsCorridorChoisi=val; }
+export function setEditHorsCorridor(val){ state.editHorsCorridor=val; }
+
 export function setEditGlace(val){
   state.editRefrigerant=val;
   var btnO=document.getElementById('e-btn-glace-oui'),btnN=document.getElementById('e-btn-glace-non');
@@ -552,11 +581,14 @@ export async function saveEditEnvoi(){
   if(!state.editDepts.length){notifier('e-serr','Veuillez sélectionner au moins un département.','e');return;}
   var e=state.envois.find(function(x){return x.id===state.editEnvoiId;});if(!e)return;
   var tubes=parseInt(document.getElementById('e-ntub').value)||null;var spec=document.getElementById('e-tspec').value;var notes=document.getElementById('e-notes').value;
-  var oldData={temperature:e.temp,transporteur:e.transporteur,nb_echantillons:e.tubes,departements:e.departements||[],notes:e.notes||'',type_specimen:e.typeSpecimen||'exempt',glace_seche:e.glaceSeche||false};
-  var newData={temperature:state.editTemperature,transporteur:tr,nb_echantillons:tubes,departements:state.editDepts.slice(),notes:notes,type_specimen:spec,glace_seche:state.editRefrigerant===true};
+  var _echEditChips=window.getEchantillonsDepartEdit?window.getEchantillonsDepartEdit():null;
+  var _newHorsCorridor=state.editHorsCorridor===true;
+  var _newCodesIcr=(_newHorsCorridor||state.editRefrigerant===true)?[].concat(state.editRefrigerant===true?['70008']:[]).concat(_newHorsCorridor?['70009']:[]):[];
+  var oldData={temperature:e.temp,transporteur:e.transporteur,nb_echantillons:e.tubes,departements:e.departements||[],notes:e.notes||'',type_specimen:e.typeSpecimen||'exempt',glace_seche:e.glaceSeche||false,hors_corridor:e.horsCorridorChoisi||false,echantillons_depart:e.echantillonsDepart||[]};
+  var newData={temperature:state.editTemperature,transporteur:tr,nb_echantillons:tubes,departements:state.editDepts.slice(),notes:notes,type_specimen:spec,glace_seche:state.editRefrigerant===true,hors_corridor:_newHorsCorridor,echantillons_depart:_echEditChips!==null?_echEditChips:(e.echantillonsDepart||[])};
   var changedFields=Object.keys(newData).filter(function(k){return JSON.stringify(oldData[k])!==JSON.stringify(newData[k]);});
   if(!changedFields.length){closeEditEnvoi();return;}
-  var r=await sbCall(state.sb.from('envois').update({temperature:state.editTemperature,transporteur:tr,nb_echantillons:tubes,departements:state.editDepts.slice(),notes:notes,type_specimen:spec,glace_seche:state.editRefrigerant===true}).eq('id',state.editEnvoiId), 'e-serr');
+  var r=await sbCall(state.sb.from('envois').update({temperature:state.editTemperature,transporteur:tr,nb_echantillons:tubes,departements:state.editDepts.slice(),notes:notes,type_specimen:spec,glace_seche:state.editRefrigerant===true,hors_corridor:_newHorsCorridor,codes_icr:_newCodesIcr,echantillons_depart:newData.echantillons_depart}).eq('id',state.editEnvoiId), 'e-serr');
   if(r.error)return;
   await state.sb.from('envois_audit').insert({table_name:'envois',record_id:state.editEnvoiId,action:'UPDATE',old_data:oldData,new_data:newData,changed_fields:changedFields,changed_by_id:state.currentUser.id,changed_by_nom:state.currentUser.nom});
   var destLab=state.laboratoires.find(function(l){return l.id===e.destId;})||{};var expLab=state.laboratoires.find(function(l){return l.id===e.expId;})||{};
@@ -569,8 +601,8 @@ export function showSuccessModalEdit(num,isHsilp){
   var cb=document.getElementById('success-close-btn');if(cb)cb.textContent='Fermer';
   var msgEl=document.getElementById('success-modal-msg');
   if(msgEl)msgEl.innerHTML='N°&nbsp;<strong>'+escapeHtml(num)+'</strong> modifié avec succès.<br><small style="color:var(--t2);font-size:11px;font-weight:400">Pensez à remplacer le bordereau dans la boîte d\'envoi.</small>';
-  var pb=document.getElementById('success-print-btn');var showPrint=isHsilp||state.CFG.printBordereau;
-  if(pb){pb.style.display=showPrint?'flex':'none';var fmt=isHsilp?state.CFG.hsilpBordereauFormat||'bordereau':undefined;pb.onclick=function(){closeSuccessModal();window.printBordereau(fmt);};}
+  var pb=document.getElementById('success-print-btn');
+  if(pb){pb.style.display='flex';pb.textContent=isHsilp?'Imprimer étiquette + bordereau':'Imprimer l\'étiquette';pb.onclick=function(){closeSuccessModal();isHsilp?window.printEtiquetteEtBordereau():window.printEtiquette();};}
   document.getElementById('success-modal').style.display='flex';
 }
 
@@ -606,14 +638,14 @@ export function toggleNoSilp(){
   if(cb&&cb.checked){cb.checked=false;showNoListModal(function(){cb.checked=true;state.sansSilp=true;_applyNoSilpUi(true);fetchHsilpPreviewNum();});}
   else{state.sansSilp=false;_applyNoSilpUi(false);}
 }
-function _applyNoSilpUi(on){var wrap=document.getElementById('nlist-wrap'),warn=document.getElementById('no-silp-warn'),nw=document.getElementById('no-silp-num-wrap');if(wrap)wrap.style.display=on?'none':'';if(warn)warn.style.display=on?'':'none';if(nw)nw.style.display=on?'':'none';}
+function _applyNoSilpUi(on){var wrap=document.getElementById('nlist-wrap'),warn=document.getElementById('no-silp-warn'),nw=document.getElementById('no-silp-num-wrap');if(wrap)wrap.style.display=on?'none':'';if(warn)warn.style.display=on?'':'none';if(nw)nw.style.display=on?'':'none';if(window.updateEchDepartSectionVisibility)window.updateEchDepartSectionVisibility();}
 export async function fetchHsilpPreviewNum(){var el=document.getElementById('h-nlist');if(!el)return;el.value='Chargement…';el.classList.remove('valid');try{var r=await state.sb.rpc('peek_next_hsilp');if(!r.error&&r.data){el.value=r.data;el.classList.add('valid');}else{el.value='HSILP-######-#####';}}catch(e){el.value='HSILP-######-#####';}}
 export function showSuccessModalHsilp(num){
   var msgEl=document.getElementById('success-modal-msg');if(msgEl)msgEl.innerHTML='N°&nbsp;<strong>'+escapeHtml(num)+'</strong> enregistré avec succès.';
   var pb=document.getElementById('success-print-btn');
-  if(pb){pb.style.display='flex';pb.onclick=function(){closeSuccessModal();window.printBordereau(state.CFG.hsilpBordereauFormat||'bordereau');};}
+  if(pb){pb.style.display='flex';pb.textContent='Imprimer étiquette + bordereau';pb.onclick=function(){closeSuccessModal();window.printEtiquetteEtBordereau();};}
   document.getElementById('success-modal').style.display='flex';
-  setTimeout(function(){window.printBordereau(state.CFG.hsilpBordereauFormat||'bordereau');},400);
+  setTimeout(function(){window.printEtiquetteEtBordereau();},400);
 }
 
 // ── Mon compte ────────────────────────────────────────────────────────────────

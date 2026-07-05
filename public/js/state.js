@@ -69,6 +69,9 @@ export const state = {
   get refrigerantChoisi()             { return window.refrigerantChoisi; },         // STAT Checked
   set refrigerantChoisi(v)            { window.refrigerantChoisi = v; },
 
+  get horsCorridorChoisi()            { return window.horsCorridorChoisi; },
+  set horsCorridorChoisi(v)           { window.horsCorridorChoisi = v; },
+
   get sansSilp()     { return window.sansSilp; },
   set sansSilp(v)    { window.sansSilp = v; },
 
@@ -140,6 +143,12 @@ export const state = {
   get hgEditRefrigerant()       { return window.hgEditRefrigerant; },
   set hgEditRefrigerant(v)      { window.hgEditRefrigerant = v; },
 
+  get hgEditHorsCorridor()      { return window.hgEditHorsCorridor; },
+  set hgEditHorsCorridor(v)     { window.hgEditHorsCorridor = v; },
+
+  get hgHorsCorridor()          { return window.hgHorsCorridor; },
+  set hgHorsCorridor(v)         { window.hgHorsCorridor = v; },
+
   get hgEditListesSilp()     { return window.hgEditListesSilp; },
   set hgEditListesSilp(v)    { window.hgEditListesSilp = v; },
 
@@ -155,6 +164,9 @@ export const state = {
 
   get editRefrigerant()           { return window.editRefrigerant; },
   set editRefrigerant(v)          { window.editRefrigerant = v; },
+
+  get editHorsCorridor()          { return window.editHorsCorridor; },
+  set editHorsCorridor(v)         { window.editHorsCorridor = v; },
 
   // ── Impression ──────────────────────────────────────────────────────────────
   get donneesImpression()       { return window.donneesImpression; },

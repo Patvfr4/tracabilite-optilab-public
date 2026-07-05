@@ -5,6 +5,23 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
+// ── Secrets — lus depuis Supabase Vault (saisis dans l'UI admin) ─────────────
+// Fallback Deno.env si Vault non disponible.
+// Priorité : 1) notification_config (migration 028)  2) Vault  3) Deno.env
+function loadSecretFromCfg(cfg: Record<string, string>, name: string): string {
+  const colMap: Record<string, string> = { RESEND_API_KEY: 'resend_api_key', SMTP_PASS: 'smtp_pass' };
+  return cfg[colMap[name] ?? ''] || '';
+}
+async function loadSecret(sb: ReturnType<typeof createClient>, name: string, cfg: Record<string, string> = {}): Promise<string> {
+  const fromCfg = loadSecretFromCfg(cfg, name);
+  if (fromCfg) return fromCfg;
+  try {
+    const { data, error } = await sb.rpc('get_app_secret', { p_name: name });
+    if (!error && data) return String(data);
+  } catch (_) { /* fallback */ }
+  return Deno.env.get(name) || '';
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -59,21 +76,24 @@ Deno.serve(async (req: Request) => {
 
   try {
     if (cfg.provider === 'resend') {
-      if (!cfg.resend_api_key) throw new Error('Clé API Resend non configurée.');
+      const key = await loadSecret(sb, 'RESEND_API_KEY', cfg);
+      if (!key) throw new Error('RESEND_API_KEY non configurée — saisissez-la dans Configuration > Notifications.');
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${cfg.resend_api_key}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ from: cfg.smtp_from || 'OPTILAB <onboarding@resend.dev>', to: [email], subject, text: body, html }),
       });
       if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
     } else {
       if (!cfg.smtp_host) throw new Error('Serveur SMTP non configuré.');
+      const pass = await loadSecret(sb, 'SMTP_PASS', cfg);
+      if (!pass) throw new Error('SMTP_PASS non configuré — saisissez-le dans Configuration > Notifications.');
       const client = new SMTPClient({
         connection: {
           hostname: cfg.smtp_host,
           port: cfg.smtp_port || 587,
           tls: cfg.smtp_port === 465,
-          auth: { username: cfg.smtp_user, password: cfg.smtp_pass },
+          auth: { username: cfg.smtp_user, password: pass },
         },
       });
       await client.send({ from: cfg.smtp_from || cfg.smtp_user, to: email, subject, content: body, html });

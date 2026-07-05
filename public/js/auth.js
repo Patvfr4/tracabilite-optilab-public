@@ -17,11 +17,38 @@ import { libelleRole } from './utils.js';
 
 var INACT_DELAY = 15 * 60 * 1000; // 15 min d'inactivité → déconnexion
 
-// ── Rate limiting login ───────────────────────────────────────────────────────
+// ── Turnstile (captcha Cloudflare sur le login) ──────────────────────────────
+// Le widget est rendu par onloadTurnstileCallback (appelé par le script
+// Cloudflare une fois chargé). Le token est consommé à chaque tentative.
+var _turnstileWidgetId = null;
 
-var _loginAttempts  = 0;
-var _loginLocked    = false;
-var _loginLockUntil = 0;
+window._doTurnstileRender = function() {
+  var siteKey = window.TURNSTILE_SITE_KEY;
+  var container = document.getElementById('login-turnstile');
+  if (!siteKey || !container || !window.turnstile) return;
+  try {
+    _turnstileWidgetId = window.turnstile.render('#login-turnstile', {
+      sitekey: siteKey,
+      theme:   'auto',
+      size:    'normal',
+    });
+  } catch (e) {
+    console.warn('[auth] Turnstile init échouée :', e);
+  }
+};
+// Si Turnstile a chargé avant ce module (race condition async) :
+if (window._turnstilePending) window._doTurnstileRender();
+
+function _getTurnstileToken() {
+  if (!window.turnstile || _turnstileWidgetId === null) return '';
+  try { return window.turnstile.getResponse(_turnstileWidgetId) || ''; }
+  catch (_) { return ''; }
+}
+
+function _resetTurnstile() {
+  if (!window.turnstile || _turnstileWidgetId === null) return;
+  try { window.turnstile.reset(_turnstileWidgetId); } catch (_) {}
+}
 
 // ── Vérification des rôles ────────────────────────────────────────────────────
 
@@ -58,38 +85,95 @@ export function initLoginBg() {
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────────
+// Le login passe par l'edge function `auth-gate` qui :
+//   - applique le rate-limit serveur (5 échecs / 15 min par employee_id)
+//   - valide le token Turnstile (via Supabase Auth captcha)
+//   - relaie à signInWithPassword côté serveur
+// Le client récupère les tokens et active la session via setSession().
+
+function _showLoginError(msg, durationMs) {
+  var el = document.getElementById('lerr');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  if (durationMs) setTimeout(function() { el.style.display = 'none'; }, durationMs);
+}
 
 export async function seConnecter() {
   var id = document.getElementById('lid').value.trim();
   var pw = document.getElementById('lpw').value;
   if (!id || !pw) return;
-  if (_loginLocked && Date.now() < _loginLockUntil) {
-    var secs = Math.ceil((_loginLockUntil - Date.now()) / 1000);
-    var el = document.getElementById('lerr');
-    el.textContent = 'Trop de tentatives. Réessayez dans ' + secs + ' secondes.';
-    el.style.display = 'block'; return;
+
+  // Captcha obligatoire si une sitekey est configurée pour ce domaine
+  var captchaToken = _getTurnstileToken();
+  if (window.TURNSTILE_SITE_KEY && !captchaToken) {
+    _showLoginError('Veuillez compléter le captcha avant de vous connecter.', 5000);
+    return;
   }
+
   window.spin(true);
   try {
-    var r = await state.sb.auth.signInWithPassword({ email: id.toLowerCase() + '@optilab.internal', password: pw });
-    if (r.error) {
+    var resp = await fetch(window.EDGE_URL + '/auth-gate', {
+      method:  'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey':       window.SUPABASE_KEY,
+      },
+      body: JSON.stringify({
+        employee_id:   id,
+        password:      pw,
+        captcha_token: captchaToken,
+      }),
+    });
+
+    var data = null;
+    try { data = await resp.json(); } catch (_) { data = {}; }
+
+    if (resp.status === 429 && data && data.error === 'too_many_attempts') {
       window.spin(false);
-      _loginAttempts++;
-      if (_loginAttempts >= 5) { _loginLocked = true; _loginLockUntil = Date.now() + 30000; _loginAttempts = 0; setTimeout(function() { _loginLocked = false; }, 30000); }
-      var el = document.getElementById('lerr');
-      el.textContent = _loginAttempts >= 3
-        ? 'Identifiants incorrects. Encore ' + Math.max(0, 5 - _loginAttempts) + ' tentative(s) avant verrouillage.'
-        : 'Identifiants incorrects ou compte désactivé.';
-      el.style.display = 'block'; setTimeout(function() { el.style.display = 'none'; }, 4000); return;
+      _resetTurnstile();
+      var mins = Math.ceil((data.retry_after_seconds || 900) / 60);
+      var secs = data.retry_after_seconds || 900;
+      _showLoginError('Trop de tentatives. Réessayez dans ' + mins + ' minute(s).', secs * 1000);
+      var lbtn = document.querySelector('.lbtn');
+      var lid = document.getElementById('lid');
+      var lpw = document.getElementById('lpw');
+      if (lbtn) lbtn.disabled = true;
+      if (lid)  lid.disabled  = true;
+      if (lpw)  lpw.disabled  = true;
+      setTimeout(function() {
+        if (lbtn) lbtn.disabled = false;
+        if (lid)  lid.disabled  = false;
+        if (lpw)  lpw.disabled  = false;
+        _resetTurnstile();
+      }, secs * 1000);
+      return;
     }
-    _loginAttempts = 0; _loginLocked = false;
-    await loadProfileAndInit(r.data.user.id);
+
+    if (!resp.ok || !data || !data.access_token) {
+      window.spin(false);
+      _resetTurnstile();
+      _showLoginError('Identifiants incorrects ou compte désactivé.', 4000);
+      return;
+    }
+
+    // Active la session côté client
+    var setRes = await state.sb.auth.setSession({
+      access_token:  data.access_token,
+      refresh_token: data.refresh_token,
+    });
+    if (setRes.error || !setRes.data || !setRes.data.user) {
+      window.spin(false);
+      _showLoginError('Erreur lors de l\'ouverture de session. Réessayez.', 6000);
+      return;
+    }
+
+    await loadProfileAndInit(setRes.data.user.id);
   } catch(e) {
     console.error('[OPTILAB] login:', e);
     window.spin(false);
-    var el = document.getElementById('lerr');
-    el.textContent = 'Erreur réseau. Vérifiez votre connexion et réessayez.';
-    el.style.display = 'block'; setTimeout(function() { el.style.display = 'none'; }, 6000);
+    _resetTurnstile();
+    _showLoginError('Erreur réseau. Vérifiez votre connexion et réessayez.', 6000);
   }
 }
 
@@ -233,7 +317,7 @@ async function _completeInit(p) {
     document.getElementById('cfg-sub').value               = window.CFG.subtitle;
     document.getElementById('cfg-alarm-r').value           = window.CFG.alarmR;
     document.getElementById('cfg-alarm-p').value           = window.CFG.alarmP;
-    document.getElementById('cfg-print-bordereau').checked = window.CFG.printBordereau;
+    var _cbSilp = document.getElementById('cfg-silp-print-bordereau'); if (_cbSilp) _cbSilp.checked = !!window.CFG.silpPrintBordereau;
     document.getElementById('cfg-msg-login').value         = window.CFG.messages.login;
     document.getElementById('cfg-msg-home').value          = window.CFG.messages.home;
     window.mdeUpdate('login'); window.mdeUpdate('home');
@@ -245,7 +329,7 @@ async function _completeInit(p) {
     var bCLE = document.getElementById('brd-canutec-label-en'); if (bCLE) bCLE.value = window.CFG.bordereau.canutecLabelEn || 'Emergency 24h';
     var bW   = document.getElementById('brd-warn-size');        if (bW)   bW.checked = window.CFG.bordereau.warnSize !== false;
 
-    window.renderCfgSpec(); window.renderCfgFormats(); window.renderCfgHsilpFormat();
+    window.renderCfgSpec(); window.renderCfgFormatsAll();
 
     var td = new Date(), fd = new Date(td); fd.setDate(fd.getDate() - 5);
     document.getElementById('pfrom').value  = fd.toISOString().slice(0, 10);
@@ -262,6 +346,7 @@ async function _completeInit(p) {
     if (_panel === 'config'       && !estAdmin()) _panel = 'nouveau';
 
     window.spin(false); window.showScr('app'); window.initHGMode(); window.showPanel(_panel); window.initNlistValidation(); _inactStart();
+    setTimeout(function() { if (window.tourMaybeAutoStart) window.tourMaybeAutoStart(); }, 1000);
   } catch(e) {
     console.error('[OPTILAB] _completeInit:', e);
     window.spin(false); window.showScr('login');

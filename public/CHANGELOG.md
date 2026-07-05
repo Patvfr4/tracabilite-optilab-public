@@ -5,6 +5,105 @@ Format : `BETA MAJEUR.MINEUR.CORRECTIF` — incrémentation du correctif pour le
 
 ---
 
+## [BETA 1.10.1] — 2026-07-04
+
+### Sécurité — Durcissement du rôle Metabase
+
+- **Migration `045_metabase_ro_no_bypassrls.sql`** : retrait de l'attribut `BYPASSRLS` du rôle `metabase_ro` (qui court-circuitait le cloisonnement RLS) et ajout de politiques `SELECT` permissives explicites (`metabase_ro_read`) sur chaque table protégée par RLS. La RLS redevient pleinement effective, l'accès en lecture de Metabase est préservé.
+- **Migration `034`** : retrait du mot de passe en clair du fichier (désormais injecté à l'exécution) et **purge du secret de l'historique git**.
+
+### Documentation
+
+- Réorganisation de la documentation : `docs/architecture/` (pour auditeurs : architecture, liste des fonctions, dépendances externes, sécurité, base de données, infrastructure, capacité, recette) et `docs/deploiement/` (guides pas à pas Supabase, Cloudflare Pages, Resend).
+
+### Amélioration
+
+- **Journal des versions** consultable directement dans l'application (Aide → À propos).
+- Ajout de **Chart.js** et **Cloudflare Turnstile** aux dépendances listées dans « À propos ».
+- Retrait des librairies inutilisées `jsbarcode` et `qrcode` (remplacées par `bwip-js`).
+
+---
+
+## [BETA 1.10.0] — 2026-07-04
+
+### Fonctionnalité — Module Gestion des échantillons
+
+- Scan des codes-barres d'échantillons sur les envois **hors-SILP** (intra et hors-grappe), activable par laboratoire via `module_config` (module `gestion_echantillons`).
+- **Départ** : section de scan dans le formulaire intra HSILP et HG HSILP (chips ajout/suppression).
+- **Réception** : champ « Nb reçus » + scan de vérification, avec **génération automatique d'une non-conformité** en cas d'écart.
+- **Édition** : chips modifiables dans le modal d'édition intra.
+- **Migration `035_echantillons_module.sql`** : colonnes `echantillons_depart` / `echantillons_reception` sur les envois, RPC de création mises à jour (`p_echantillons_depart`).
+- Nouveau fichier `public/js/echantillons.js`.
+
+### Fonctionnalité — Parcours de formation guidé
+
+- Tour interactif par rôle (technicien / superviseur / superviseur de grappe / admin) présentant les fonctions clés avec surbrillance, bulles positionnées et exemples.
+- Démarrage automatique à la première connexion, rejouable via **Aide → À propos → « Relancer le tour guidé »**. Comptes de démonstration : relance systématique.
+- Progression persistée dans `profiles.tour_progress` (**migration `042_tour_progress.sql`**).
+- Nouveau fichier `public/js/tour.js`.
+
+### Fonctionnalité — Codes ICR / valeurs pondérées (Workload)
+
+- Nouveau référentiel `icr_codes` (`70008` Glace sèche, `70009` Transport hors corridor) et colonnes `hors_corridor` / `codes_icr` sur les envois intra et hors-grappe.
+- Case « Transport hors corridor » dans les formulaires intra et HG, avec attribution automatique des codes ICR correspondants.
+- Nouvelle section **Codes ICR** dans les KPI (RPC `get_icr_stats`).
+- **Migrations `040_icr_codes.sql`** et **`041_icr_libelle_70009.sql`**.
+
+### Fonctionnalité — Notifications automatiques par cron + détection d'alarmes
+
+- Envoi des notifications par lot via **cron** (pg_cron), reprogrammation quotidienne (migrations `036` → `039`), sans exposition anon.
+- **Migration `044_cron_detect_alarms.sql`** : détection SQL centralisée des envois en alarme, nouveaux types `alarm_r` (transit intra > seuil R) et `hg_alarm` (envoi hors-grappe non confirmé au-delà du délai), avec déduplication.
+
+### Sécurité — Durcissement des privilèges anon
+
+- **Migration `043_revoke_anon_execute.sql`** : révocation de l'`EXECUTE` sur les fonctions non destinées au rôle `anon`.
+
+---
+
+## [BETA 1.9.9] — 2026-06-04
+
+### Fonctionnalité — Bordereaux & gabarits d'impression
+
+- Refonte du moteur d'impression des bordereaux (`print.js`) : gestion des formats et amélioration du rendu.
+- **Gabarits** : sélection des formats d'étiquette et de bordereau (intra / hors-grappe) configurables, uniformisation des formats entre intra et HG (`app-config.js`).
+
+### Amélioration — Rôle Metabase en lecture seule
+
+- **Migration `034_metabase_readonly_role.sql`** : rôle PostgreSQL en lecture seule dédié aux tableaux de bord Metabase.
+
+---
+
+## [BETA 1.9.8] — 2026-06-03
+
+### Infrastructure — Migration vers un nouveau projet Supabase
+
+- Bascule de l'application vers un nouveau projet Supabase (mise à jour de `config.js`).
+
+### Sécurité — Durcissement RLS et fonctions
+
+- **Migrations `031` → `033`** : `search_path` fixe sur les fonctions, ajout des clauses `WITH CHECK` sur les politiques RLS, révocation de l'`EXECUTE` anon sur les fonctions internes, corrections des politiques d'insertion.
+
+---
+
+## [BETA 1.9.7] — 2026-05-12
+
+### Sécurité — Durcissement global (4 volets)
+
+- **CSP stricte + Cache-Control** dans `public/_headers`, retrait des images CDN de l'écran de connexion.
+- **Secrets Resend / SMTP déplacés vers Supabase Vault** (**migration `025_vault_app_secrets.sql`**) au lieu d'être stockés en base applicative.
+- **Rate-limit anti brute-force** sur la confirmation hors-grappe anonyme (**migrations `026`, `029`**).
+- **Rate-limit de connexion côté serveur + captcha Cloudflare Turnstile** (Edge Function `auth-gate`, **migration `027_login_attempts.sql`**).
+
+### Sécurité — Cloisonnement RLS par laboratoire
+
+- **Migration `030_rls_cloisonnement_labo.sql`** : renforcement de l'isolation des données par laboratoire au niveau des politiques RLS.
+
+### Corrections
+
+- Correction de la limite d'affichage hors-grappe, ajustements UI de la page de confirmation, corrections de formulation en français.
+
+---
+
 ## [BETA 1.9.6] — 2026-05-09
 
 ### Fonctionnalité — Configuration par grappe

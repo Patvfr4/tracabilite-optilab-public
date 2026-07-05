@@ -1,0 +1,45 @@
+name: Sauvegarde base de données
+
+on:
+  schedule:
+    - cron: '0 4 * * *'   # chaque nuit à 4h00 UTC (minuit heure de l'Est)
+  workflow_dispatch:        # déclenchement manuel depuis l'onglet Actions
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  backup:
+    name: pg_dump → artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Installer pg_dump 17
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Dump de la base de données
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          FILENAME="optilab-$(date -u +%Y%m%d-%H%M).dump"
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" \
+            --no-owner \
+            --no-acl \
+            --no-comments \
+            -Fc \
+            -f "$FILENAME"
+          echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+          SIZE=$(du -sh "$FILENAME" | cut -f1)
+          echo "Backup créé : $FILENAME ($SIZE)"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_number }}
+          path: "*.dump"
+          retention-days: 90
+          if-no-files-found: error
