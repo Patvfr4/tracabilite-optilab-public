@@ -1,0 +1,25 @@
+# Hooks pre-commit (https://pre-commit.com) — la seule barrière AVANT la fuite :
+# le job CI « secrets » (.github/workflows/ci.yml) ne détecte qu'après le push,
+# quand le secret est déjà sur GitHub et doit donc être changé.
+#
+# Installation, une fois par clone :
+#   pipx install pre-commit        (ou : pip install pre-commit)
+#   pre-commit install
+#
+# Le hook « gitleaks » analyse les fichiers indexés (git add) avec .gitleaks.toml,
+# valeurs masquées (--redact). Il compile gitleaks depuis ses sources ; Go est
+# téléchargé par pre-commit s'il est absent (pre-commit 3.0 et plus).
+# Contournable par `git commit --no-verify` ou SKIP=gitleaks : à réserver à un
+# faux positif avéré, à corriger ensuite dans .gitleaks.toml.
+#
+# Version épinglée sur le SHA du commit de la release (commentaire « frozen ») ;
+# Dependabot (écosystème pre-commit) met à jour les deux ensemble. Garder la même
+# version que GITLEAKS_VERSION dans .github/workflows/ci.yml : le job CI
+# « secrets » échoue tant que le commentaire « # frozen: v… » ci-dessous et
+# GITLEAKS_VERSION divergent.
+minimum_pre_commit_version: '3.0.0'
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e  # frozen: v8.30.1
+    hooks:
+      - id: gitleaks

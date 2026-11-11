@@ -1,0 +1,57 @@
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Outils de développement local
+.claude/
+.mcp.json
+node_modules/
+# supabase/functions/deno.lock est desormais SUIVI : sans lui, le graphe de
+# dependances des fonctions Edge est resolu a neuf a chaque deploiement.
+
+# Secrets locaux — ne jamais committer : un secret versionné est compromis et
+# doit être changé. Sans barre oblique, ces motifs valent à toutes les
+# profondeurs : ils couvrent aussi supabase/.env (env() de config.toml) et
+# supabase/functions/<fonction>/.env (lus par `supabase functions serve`).
+# Seuls les gabarits *.example, sans valeur, sont versionnés.
+.env
+.env.*
+!.env.example
+supabase/functions/.env
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# Clés privées (TLS, PKCS#12, clés de signature des JWT, clé age de
+# déchiffrement des sauvegardes, clés SSH sans extension et PuTTY)
+*.pem
+*.key
+*.p12
+*.pfx
+signing_keys*.json
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+*.ppk
+
+# Sauvegardes de base : renseignements personnels, même chiffrées. Les dumps
+# en SQL clair (pg_dump > fichier.sql) sont visés par leur nom : schema.sql,
+# les seeds et les migrations NNN_*.sql restent suivis.
+*.dump
+*.backup
+*.age
+*.sql.gz
+*.dump.sql
+dump*.sql
+backup*.sql
+optilab-*.sql
+backups/

@@ -1,0 +1,249 @@
+# Gates CI :
+#   · fonctions Supabase : typage bloquant (deno check), lint, tests unitaires
+#     et d'intégration (simulacre local), verrou figé ;
+#   · restauration de schema.sql sur un Postgres vierge + invariants de sécurité ;
+#   · client : scripts tiers épinglés avec empreinte SRI, aucune référence aux
+#     anciens secrets ;
+#   · détection de secrets dans tout l'historique git (gitleaks).
+#
+# Chaîne d'approvisionnement : chaque action est épinglée sur le SHA complet du
+# commit de sa release (le commentaire donne la version) ; Dependabot met à jour
+# le SHA et le commentaire ensemble (.github/dependabot.yml). Le jeton GITHUB_TOKEN
+# est en lecture seule et n'est pas conservé dans .git/config après le checkout.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # bash -eo pipefail : l'échec d'une commande au milieu d'un tube fait
+    # échouer l'étape (le shell par défaut n'active pas pipefail).
+    shell: bash
+
+jobs:
+  fonctions-supabase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+      # --frozen : échoue si supabase/functions/deno.lock n'est plus à jour au
+      # lieu de le réécrire en silence. Les dépendances vérifiées ici sont donc
+      # exactement celles du verrou versionné (sommes d'intégrité comprises).
+      # deno check charge tout le graphe d'exécution (un « deno cache » lancé
+      # ensuite hors ligne n'a plus rien à télécharger) : pas d'étape cache.
+      - run: deno check --frozen --config supabase/functions/deno.json supabase/functions/*/index.ts
+      # Règles recommandées de deno lint, sur tout le dossier (tests compris).
+      - run: deno lint --config supabase/functions/deno.json supabase/functions/
+      # Tests unitaires des règles pures (autorisations, mots de passe, clés)
+      # et test d'intégration des fonctions Edge. Ce dernier lance chaque
+      # index.ts réel dans un sous-processus Deno contre un simulacre local de
+      # Supabase et de Resend : réseau limité à 127.0.0.1, clés factices,
+      # aucun appel externe. Sans ces permissions, il serait IGNORÉ en silence
+      # (permissions documentées en tête de tests/integration_test.ts).
+      - run: deno test --frozen --allow-env --allow-net=127.0.0.1 --allow-run --allow-read --config supabase/functions/deno.json supabase/functions/tests/
+
+  # Garantit que le dépôt reste la source de vérité reconstructible de la base.
+  # Le constat N-2 de l'audit (09-audit-et-version-alternative.md) avait montré
+  # que ce n'était plus le cas sans que personne s'en aperçoive — découvert par
+  # hasard, pas par un contrôle. Ce job transforme le plan de reprise après
+  # sinistre, et la portabilité vers tout autre hébergement Postgres, en quelque
+  # chose de testé à chaque modification du schéma.
+  restauration-schema:
+    name: schema.sql sur Postgres vierge
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Installer psql 17
+        run: |
+          # Clé du dépôt apt PGDG, vérifiée avant de lui faire confiance (c'est
+          # elle qui authentifie les paquets installés) : UNE seule clé
+          # primaire, d'empreinte attendue. Une seconde clé glissée dans le
+          # fichier serait sinon acceptée avec la bonne.
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o "$RUNNER_TEMP/pgdg.asc"
+          cles=$(gpg --show-keys --with-colons "$RUNNER_TEMP/pgdg.asc")
+          nb_cles=$(grep -c '^pub:' <<< "$cles" || true)
+          empreinte=$(awk -F: '$1 == "fpr" { print $10; exit }' <<< "$cles")
+          if [ "$nb_cles" -ne 1 ] || [ "$empreinte" != "B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8" ]; then
+            echo "::error::Fichier de clé du dépôt apt PGDG inattendu ($nb_cles clé(s) primaire(s) ou empreinte non conforme)."
+            exit 1
+          fi
+          # Clé liée au SEUL dépôt PGDG (signed-by), à l'emplacement de la
+          # procédure officielle d'apt.postgresql.org. Posée dans
+          # /etc/apt/trusted.gpg.d/, elle authentifierait aussi tous les autres
+          # dépôts apt du runner.
+          sudo install -D -m 0644 "$RUNNER_TEMP/pgdg.asc" /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Prérequis plateforme (rôles, auth, vault, publication Realtime)
+        run: psql -v ON_ERROR_STOP=1 -q -f supabase/ci/supabase_shim.sql
+
+      - name: Charger schema.sql
+        run: |
+          # supabase_vault est une extension propre à Supabase ; le shim en
+          # fournit l'équivalent structurel, on retire donc la seule ligne qui
+          # l'installe. C'est la seule neutralisation : tout le reste du
+          # fichier — tables, fonctions, policies, GRANT/REVOKE — est appliqué
+          # tel quel.
+          grep -v 'CREATE EXTENSION IF NOT EXISTS supabase_vault' \
+            supabase/schema.sql > schema-ci.sql
+          psql -v ON_ERROR_STOP=1 -q -f schema-ci.sql
+
+      - name: Vérifier les invariants de sécurité
+        run: psql -v ON_ERROR_STOP=1 -f supabase/ci/verif_restauration.sql
+
+  # Garde-fous du client (public/) : une régression — version en intervalle
+  # (« @4 »), empreinte SRI retirée, import() depuis un CDN, retour d'une
+  # ancienne colonne de secret — ne serait sinon détectée par rien.
+  client:
+    name: Client (scripts tiers, références interdites)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Règles détaillées en tête du script. Analyse statique, sans réseau :
+      # l'empreinte n'est pas recalculée depuis le CDN (le navigateur refuse
+      # de toute façon un fichier qui ne correspond pas, et un CDN lent ou
+      # indisponible ferait échouer la CI sans rapport avec la modification).
+      - name: Scripts tiers en version exacte avec empreinte SRI
+        run: python3 .github/scripts/verif_scripts_tiers.py public
+
+      - name: Aucune référence aux anciens secrets ni à set-secret
+        run: |
+          # Contrat client : plus de colonnes resend_api_key / smtp_pass ni de
+          # fonction set-secret (supprimée). Recherche SENSIBLE à la casse : les
+          # NOMS de secrets du Vault (RESEND_API_KEY, SMTP_PASS) restent
+          # légitimes. Hors public/lib/ (bibliothèques tierces) et hors
+          # CHANGELOG.md, qui peut citer l'historique.
+          rc=0
+          trouve=$(grep -rnE 'resend_api_key|smtp_pass|set-secret' public/ \
+            --include='*.js' --include='*.html' --exclude-dir=lib) || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            echo "::error::public/ référence une ancienne colonne de secret (resend_api_key, smtp_pass) ou la fonction set-secret supprimée :"
+            printf '%s\n' "$trouve"
+            exit 1
+          elif [ "$rc" -ne 1 ]; then
+            echo "::error::Recherche impossible dans public/ (grep, code $rc)."
+            exit 1
+          fi
+
+  # Détection de secrets dans TOUT l'historique (toutes branches et étiquettes).
+  # C'est une détection APRÈS le push : un secret signalé ici est déjà sur
+  # GitHub, donc compromis — il faut le faire tourner, le retirer de
+  # l'historique ne suffit pas. La prévention se fait avant le commit :
+  # .gitignore et hook pre-commit (.pre-commit-config.yaml).
+  #
+  # Binaire officiel de gitleaks (licence MIT) plutôt que gitleaks-action :
+  # l'action, sous licence propriétaire depuis sa v2, exige une clé
+  # GITLEAKS_LICENSE (validée par un service tiers) dès que le dépôt appartient
+  # à une organisation, se sert du jeton pour commenter les PR, et télécharge
+  # le binaire sans en vérifier la somme. Ici : version figée, SHA-256 de
+  # l'archive figé dans ce fichier, jeton en lecture seule, valeurs masquées
+  # dans le journal (--redact), et aucune dépendance au type de compte.
+  secrets:
+    name: Détection de secrets (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Mise à jour MANUELLE (Dependabot ne suit pas ce binaire) : changer les
+      # deux valeurs ensemble — la somme vient du fichier
+      # gitleaks_<version>_checksums.txt de la release. Dependabot met à jour
+      # le rev du hook dans .pre-commit-config.yaml : l'étape « Même version
+      # que le hook pre-commit » échoue tant que les deux divergent.
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0          # tout l'historique, pas seulement le dernier commit
+          persist-credentials: false
+
+      - name: Aucun fichier sensible suivi par git
+        run: |
+          # Contrôle déterministe, indépendant des règles de gitleaks : fichiers
+          # d'environnement (hors gabarits *.example), clés privées (SSH et
+          # PuTTY compris, hors clés publiques .pub) et sauvegardes de base
+          # (dumps SQL en clair compris) ne doivent jamais être versionnés.
+          # Mêmes motifs que .gitignore.
+          suivis=$(git ls-files \
+            | grep -E '(^|/)(\.env(\..+)?|\.dev\.vars(\..+)?|signing_keys[^/]*\.json)$|\.(pem|key|p12|pfx|ppk|dump|backup|age)$|\.sql\.gz$|\.dump\.sql$|(^|/)(dump|backup|optilab-)[^/]*\.sql$|(^|/)id_(rsa|dsa|ecdsa|ed25519)[^/]*$|(^|/)backups/' \
+            | grep -vE '(^|/)\.(env|dev\.vars)\.example$|(^|/)id_[^/]*\.pub$' || true)
+          if [ -n "$suivis" ]; then
+            echo "::error::Fichiers sensibles suivis par git (à retirer, puis faire tourner les secrets qu'ils contiennent) :"
+            printf '%s\n' "$suivis"
+            exit 1
+          fi
+
+      - name: Même version de gitleaks que le hook pre-commit
+        run: |
+          # Le hook local et la CI doivent appliquer le même moteur. Une PR
+          # Dependabot (écosystème pre-commit) qui monte le hook échoue donc ici
+          # tant que GITLEAKS_VERSION et GITLEAKS_SHA256 ne suivent pas : voulu.
+          rev_hook=$(awk '/repo:[[:space:]]*https:\/\/github\.com\/gitleaks\/gitleaks[[:space:]]*$/ { g = 1; next }
+                          g && /rev:/ { sub(/[[:space:]]+$/, ""); print; exit }' .pre-commit-config.yaml)
+          case "$rev_hook" in
+            *"# frozen: v${GITLEAKS_VERSION}") ;;
+            *)
+              echo "::error file=.pre-commit-config.yaml::Le hook gitleaks n'est pas en v${GITLEAKS_VERSION} (GITLEAKS_VERSION de ci.yml) : aligner GITLEAKS_VERSION et GITLEAKS_SHA256 (fichier gitleaks_<version>_checksums.txt de la release) sur le rev du hook."
+              exit 1 ;;
+          esac
+
+      - name: Installer gitleaks (somme SHA-256 vérifiée)
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum --check --strict -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" version
+
+      - name: Analyser l'historique
+        run: |
+          # Sans --log-opts, gitleaks parcourt « git log -p --all » : toutes les
+          # références récupérées par le checkout. --redact : aucune valeur de
+          # secret dans le journal, même partielle.
+          "$RUNNER_TEMP/gitleaks" git . \
+            --config .gitleaks.toml \
+            --redact \
+            --verbose \
+            --no-banner \
+            --exit-code 1

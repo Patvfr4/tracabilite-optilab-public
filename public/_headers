@@ -1,0 +1,53 @@
+# Cloudflare Pages — En-têtes HTTP
+# Appliqués automatiquement sur toutes les réponses.
+
+# ── Politique globale ────────────────────────────────────────────────────────
+# script-src : cdn.jsdelivr.net sert supabase-js, Chart.js et ZXing, tous en
+# version exacte avec empreinte SRI ; jsPDF et AutoTable sont des copies locales
+# (/lib/), d'où le retrait de cdnjs.cloudflare.com. Les chemins jsDelivr ne
+# sont pas restreints par paquet : tant que 'unsafe-inline' demeure, le gain
+# serait nul, et chaque montée de version devrait aussi modifier ce fichier.
+# challenges.cloudflare.com : Turnstile, SEULE exception à la règle « version
+# exacte + SRI » (Cloudflare exige l'adresse exacte de api.js, sans version
+# figée ni copie ; voir le commentaire de la balise dans index.html).
+# connect-src *.supabase.co : à resserrer sur l'hôte exact du projet quand sa
+# référence définitive sera connue (voir public/js/config.js).
+# Permissions-Policy camera=(self) : le scan des bons de départ (ZXing,
+# bons-depart.js) lit la caméra de la page elle-même ; aucune autre origine
+# (iframe) n'y a accès.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; worker-src 'self' blob:
+
+# ── Cache : librairies vendor (peu mises à jour, gros poids) ────────────────
+/lib/*
+  Cache-Control: public, max-age=2592000
+
+# ── Cache : images (peu mises à jour) ────────────────────────────────────────
+/img/*
+  Cache-Control: public, max-age=2592000
+
+/favicon.ico
+  Cache-Control: public, max-age=2592000
+
+# ── Cache : JS et CSS applicatifs (court, must-revalidate jusqu'à versioning) ─
+/js/*
+  Cache-Control: public, max-age=300, must-revalidate
+
+/css/*
+  Cache-Control: public, max-age=300, must-revalidate
+
+# ── Cache : HTML (jamais en cache, toujours frais) ───────────────────────────
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/confirm/*
+  Cache-Control: no-cache

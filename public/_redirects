@@ -1,0 +1,7 @@
+# Cloudflare Pages — Routage SPA
+# Toute URL inconnue renvoie index.html (code 200, pas de redirection visible).
+# Les fichiers statiques existants (css, js, img) sont servis en priorité
+# avant que cette règle ne s'applique.
+
+/confirm/*    /confirm/index.html    200
+/*    /index.html    200

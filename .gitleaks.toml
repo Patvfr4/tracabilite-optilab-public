@@ -1,0 +1,136 @@
+# Détection de secrets — configuration gitleaks (https://github.com/gitleaks/gitleaks).
+#
+# Utilisée par le job CI « secrets » (.github/workflows/ci.yml) et par le hook
+# pre-commit (.pre-commit-config.yaml). Le fichier lui-même est exclu de
+# l'analyse par la configuration par défaut (motif « gitleaks\.toml »).
+#
+# Elle étend la configuration par défaut de gitleaks (plus de 200 règles) avec :
+#   · des règles propres aux secrets de CE projet, que les règles par défaut ne
+#     reconnaissent pas (clé secrète Supabase, clé API Resend, mot de passe SMTP,
+#     mot de passe dans une URL PostgreSQL, clé secrète Turnstile) ;
+#   · des listes d'autorisation CIBLÉES, limitées chacune à un chemin ET à la
+#     forme exacte de la valeur, pour des valeurs publiques par conception.
+#
+# Règle du projet : on n'ajoute JAMAIS ici d'exception pour faire passer un vrai
+# secret. Un secret détecté après un push est compromis : il faut le faire
+# tourner, le retirer de l'historique ne suffit pas.
+
+title = "OPTILAB envois — détection de secrets"
+# [[allowlists]] et targetRules n'existent qu'à partir de la v8.25.0.
+minVersion = "v8.25.0"
+
+[extend]
+useDefault = true
+
+# ─── Règles propres au projet ────────────────────────────────────────────────
+
+[[rules]]
+id = "supabase-secret-key"
+description = "Clé secrète Supabase (sb_secret_…) : contourne la RLS, accès complet à la base."
+regex = '''\b(sb_secret_[A-Za-z0-9_-]{20,})'''
+# L'entropie écarte les gabarits de la documentation (sb_secret_xxxx…).
+entropy = 3.5
+keywords = ["sb_secret_"]
+
+[[rules]]
+id = "resend-api-key"
+description = "Clé API Resend (re_…) : permet d'envoyer des courriels depuis le domaine vérifié."
+regex = '''\b(re_[A-Za-z0-9]{6,12}_[A-Za-z0-9]{16,40})\b'''
+entropy = 3.5
+keywords = ["re_"]
+
+[[rules]]
+id = "smtp-password"
+description = "Mot de passe SMTP affecté à SMTP_PASS ou SMTP_PASSWORD (la règle générique ne reconnaît pas « PASS » seul)."
+# Toutes les formes d'affectation, nom en majuscules ou en minuscules :
+# .env et shell (SMTP_PASS=…), `secrets set`, JSON ("SMTP_PASS": "…"),
+# YAML (SMTP_PASS: …), SQL (:=). La valeur n'exclut AUCUN caractère spécial
+# ($ . # ! etc.) : un vrai mot de passe en contient presque toujours. Seconde
+# forme : mot de passe d'application Gmail ou Microsoft copié avec ses espaces
+# (quatre groupes de quatre lettres). Gabarits et code sont écartés par la
+# liste d'autorisation de la règle, ci-dessous.
+regex = '''(?i:SMTP_PASS(?:WORD)?)["']?[ \t]*(?::?=|:)[ \t]*["'\x60]?([^\s"'\x60]{8,}|[a-z]{4} [a-z]{4} [a-z]{4} [a-z]{4}\b)'''
+keywords = ["smtp_pass"]
+
+[[rules.allowlists]]
+description = "Gabarits de documentation et code : la valeur n'est pas un mot de passe."
+# Cible : la valeur extraite. Les suffixes [,;)]* couvrent la ponctuation
+# capturée quand la valeur n'est pas entre guillemets (objet, appel).
+regexes = [
+  # Gabarits : ${VAR}, ${VAR:-}, $VAR, {var}, {{ var }}, <…>, [YOUR-PASSWORD].
+  '''^\$\{[^}]*\}[,;)]*$''',
+  '''^\$[A-Za-z_]\w*[,;)]*$''',
+  '''^\{\{?[^{}]*\}\}?[,;)]*$''',
+  '''^<[^<>]*>[,;)]*$''',
+  '''^\[[^\[\]]*\][,;)]*$''',
+  # Identifiants SANS chiffre : snake_case, kebab-case ou chemin pointé
+  # (config.smtp_pass, votre_mot_de_passe), camelCase (smtpPass), mot seul de
+  # 8 à 15 lettres (password, settings). Un mot de passe d'application Gmail
+  # ou Microsoft (16 lettres minuscules) reste détecté.
+  '''^[A-Za-z]+(?:[_.-][A-Za-z]+)+[,;)]*$''',
+  '''^[a-z]+(?:[A-Z][a-z]+)+[,;)]*$''',
+  '''^[A-Za-z][a-z]{7,14}[,;)]*$''',
+  # Code : appel, chaînage optionnel ou indexation (Deno.env.get(…),
+  # loadSecret(…), payload.smtp_pass?.trim(), env[…]).
+  '''^[A-Za-z_$][A-Za-z_]*(?:\.[A-Za-z_$][\w$]*)*(?:\(|\?\.|\[)''',
+  # Annotations de type (smtp_pass: string|null).
+  '''^(?:string|null|undefined|text|boolean|number)\b''',
+]
+
+[[rules]]
+id = "postgres-url-password"
+description = "Mot de passe dans une URL de connexion PostgreSQL (ex. SUPABASE_DB_URL)."
+# Le mot de passe va jusqu'au premier @, comme dans libpq (un @ dans un mot de
+# passe doit y être encodé %40). Aucun autre caractère n'est exclu.
+regex = '''postgres(?:ql)?://[^:@/\s'"]+:([^@\s'"]{6,})@'''
+# L'entropie écarte les identifiants jetables des conteneurs de test
+# (postgres:postgres@localhost).
+entropy = 3.0
+keywords = ["postgres://", "postgresql://"]
+
+[[rules.allowlists]]
+description = "Gabarits de documentation : ${VAR}, $VAR, {var}, {{ var }}, <…>, [YOUR-PASSWORD]."
+regexes = [
+  '''^\$\{[^}]*\}$''',
+  '''^\$[A-Za-z_]\w*$''',
+  '''^\{\{?[^{}]*\}\}?$''',
+  '''^<[^<>]*>$''',
+  '''^\[[^\[\]]*\]$''',
+]
+
+[[rules]]
+id = "cloudflare-turnstile-secret-key"
+description = "Clé SECRÈTE Turnstile (réglage plateforme, jamais dans le code). La sitekey publique de public/js/config.js a le même préfixe mais est plus courte."
+# Clés Turnstile : préfixe « 0x4AAAAAA », puis 15 caractères pour la sitekey
+# (24 au total, vérifié sur la sitekey du projet) et 26 environ pour la clé
+# secrète (35 au total). Le seuil de 20 sépare les deux avec de la marge.
+# Règle indispensable : la règle generic-api-key par défaut écarte toute
+# valeur contenant « aaaaaa » (mot d'arrêt), donc toute clé Turnstile.
+regex = '''\b(0x4AAAAAA[A-Za-z0-9_-]{20,})\b'''
+keywords = ["0x4aaaaaa"]
+
+# ─── Listes d'autorisation ciblées ───────────────────────────────────────────
+
+[[allowlists]]
+description = "Clé publiable Supabase et sitekey Turnstile de public/js/config.js : publiques par conception (servies au navigateur, la sécurité repose sur la RLS et sur la clé SECRÈTE Turnstile côté plateforme)."
+condition = "AND"
+# js/config.js : même fichier avant son déplacement dans public/ (historique).
+paths = ['''^(?:public/)?js/config\.js$''']
+# Cible : la valeur extraite (« secret »), ancrée. Une clé sb_secret_, une clé
+# secrète Turnstile ou tout autre secret dans ce fichier reste détecté.
+regexes = [
+  '''^sb_publishable_[A-Za-z0-9_-]{20,}$''',
+  # Sitekey (24 caractères) : aujourd'hui REDONDANT — generic-api-key l'écarte
+  # déjà par son mot d'arrêt « aaaaaa » et cloudflare-turnstile-secret-key
+  # exige au moins 29 caractères. Gardé, borné à la forme d'une sitekey (une
+  # clé secrète, plus longue, n'y entre pas), au cas où l'une de ces deux
+  # règles changerait.
+  '''^0x4AAAAAA[A-Za-z0-9_-]{10,18}$''',
+]
+
+[[allowlists]]
+description = "Valeurs factices évidentes (tests unitaires, documentation), pour les seules règles propres au projet."
+targetRules = ["supabase-secret-key", "resend-api-key", "smtp-password", "postgres-url-password", "cloudflare-turnstile-secret-key"]
+# Comparés en minuscules à la valeur extraite (sous-chaîne).
+stopwords = ["factice", "exemple", "example", "placeholder", "dummy", "fake", "xxxxxx"]
+

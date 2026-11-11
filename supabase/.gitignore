@@ -1,0 +1,16 @@
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local
+
+# Secrets locaux : redondant avec le .gitignore racine, mais protège aussi le
+# dossier supabase/ copié ou initialisé ailleurs. Couvre .env (env() de
+# config.toml) et functions/.env, functions/<fonction>/.env (functions serve).
+.env
+.env.*
+!.env.example
+signing_keys*.json
