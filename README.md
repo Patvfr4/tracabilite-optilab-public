@@ -454,7 +454,7 @@ deno test --frozen --allow-env --allow-net=127.0.0.1 --allow-run --allow-read \
   --config supabase/functions/deno.json supabase/functions/tests/
 ```
 
-La connexion locale n'est pas prise en charge tant qu'il n'existe pas d'environnement de développement distinct : les entrées `localhost` de `public/js/config.js` visent le projet de production avec la clé Turnstile de test, que la production refuse. La mise en place recommandée (pile locale `supabase start`, projet de préproduction aux données synthétiques) est décrite dans [`docs/deploiement/05-procedures-securite.md`](docs/deploiement/05-procedures-securite.md). Aucun secret ne se place dans le dépôt : voir [`CLAUDE.md`](CLAUDE.md) et l'inventaire de [`docs/architecture/04-securite.md`](docs/architecture/04-securite.md).
+La connexion locale n'est pas prise en charge tant qu'il n'existe pas d'environnement de développement distinct : les entrées `localhost` de `public/js/config.js` visent le projet de production avec la clé Turnstile de test, que la production refuse. La mise en place recommandée (pile locale `supabase start`, projet de préproduction aux données synthétiques) est décrite dans [`docs/deploiement/05-procedures-securite.md`](docs/deploiement/05-procedures-securite.md). Aucun secret ne se place dans le dépôt : voir l'inventaire de [`docs/architecture/04-securite.md`](docs/architecture/04-securite.md).
 
 ---
 
@@ -466,7 +466,7 @@ Pour signaler une vulnérabilité, utilisez le signalement privé de GitHub déc
 
 ## Licence
 
-Ce code est publié **sans licence** : **tous droits réservés**. Hormis ce que permettent les conditions d'utilisation de GitHub (consulter le code, en créer une copie sur GitHub), aucun droit de réutilisation, de modification ni de redistribution n'est accordé.
+Ce code est publié **sans licence** : **tous droits réservés**. La copie publique, [tracabilite-optilab-public](https://github.com/Patvfr4/tracabilite-optilab-public), est mise à jour à chaque version ; le développement se fait dans un dépôt privé et les contributions externes ne sont pas acceptées. Pour signaler une vulnérabilité : [`SECURITY.md`](SECURITY.md). Hormis ce que permettent les conditions d'utilisation de GitHub (consulter le code, en créer une copie sur GitHub), aucun droit de réutilisation, de modification ni de redistribution n'est accordé.
 
 ---
 

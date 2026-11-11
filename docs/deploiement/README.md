@@ -85,6 +85,8 @@ service.
    variables GitHub, premier run, test de restauration.
 5. **[05 — Procédures de sécurité](05-procedures-securite.md)** — rotation, incident (Loi 25),
    départ d'un administrateur, séparation dev/prod.
+6. **[06 — Dépôt public](06-depot-public.md)** — copie publiée à chaque version par
+   `.github/scripts/publier_depot_public.py`, réglages du dépôt public.
 
 ---
 
@@ -144,8 +146,8 @@ Dans le dépôt (*Settings › Actions › General*) :
 Et, selon le plan disponible : ruleset sur `main` (PR obligatoire, force-push interdit, checks
 CI requis, désignés par le nom affiché des jobs : `fonctions-supabase`,
 « schema.sql sur Postgres vierge », « Client (scripts tiers, références interdites) »,
-« Détection de secrets (gitleaks) ») ; sur le dépôt public, activer le
-*private vulnerability reporting* (voir `SECURITY.md`).
+« Détection de secrets (gitleaks) »). Réglages propres au dépôt public : voir
+[06-depot-public.md](06-depot-public.md) §2.
 
 ---
 

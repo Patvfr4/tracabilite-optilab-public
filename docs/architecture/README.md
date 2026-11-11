@@ -36,7 +36,7 @@ Points de vigilance à synchroniser lors d'un changement :
 
 - **Nouveau module / fonctionnalité** → `01-architecture-application.md`, `02-liste-des-fonctions.md`, `08-plan-de-recette.md`, et `public/CHANGELOG.md`.
 - **Changement de base** → `supabase/schema.sql` (seule source ; tout objet ajouté s'inscrit dans le bloc « Modèle de privilèges » **et** dans les listes exactes de `supabase/ci/verif_restauration.sql`), `05-base-de-donnees.md` et, si sécurité, `04-securite.md`.
-- **Secret ou magasin de secret** → inventaire de `04-securite.md` §5, tableau de `CLAUDE.md`, procédures de `../deploiement/05-procedures-securite.md`. Jamais de valeur réelle dans la documentation : gabarits `<…>` seulement.
+- **Secret ou magasin de secret** → inventaire de `04-securite.md` §5, tableau de `CLAUDE.md` (dépôt de travail), procédures de `../deploiement/05-procedures-securite.md`. Jamais de valeur réelle dans la documentation : gabarits `<…>` seulement.
 - **Nouvelle dépendance (CDN, lib, service)** → version exacte + empreinte SRI (ou copie locale versionnée), `03-dependances-externes.md` **et** l'onglet « À propos » de l'application (`public/index.html`).
 - **Changement de déploiement** (Supabase / Cloudflare / Resend) → `../deploiement/`.
 - **Bump de version** → `public/index.html` (sidebar + À propos) et `public/CHANGELOG.md`. Le CHANGELOG est **servi publiquement** par l'application : entrées orientées utilisateurs, sans détail d'exploitation ; le détail technique de sécurité va dans `04-securite.md` §13.

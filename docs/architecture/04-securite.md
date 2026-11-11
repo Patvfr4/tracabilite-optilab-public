@@ -321,7 +321,7 @@ la clé `[auth.email] enable_signup` active en réalité le fournisseur lui-mêm
 
 ### 5.1 Inventaire (référence unique)
 
-Ce tableau est la **référence** ; `CLAUDE.md` en donne un résumé et les guides de
+Ce tableau est la **référence** ; `CLAUDE.md` (consignes du dépôt de travail, non publié) en donne un résumé et les guides de
 `docs/deploiement/` y renvoient. Toute modification d'un secret ou d'un magasin met à jour les deux.
 Aucune valeur n'est jamais écrite ici. Les procédures pas à pas (rotation, incident, départ) sont
 dans [`../deploiement/05-procedures-securite.md`](../deploiement/05-procedures-securite.md), où
